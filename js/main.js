@@ -1,0 +1,1338 @@
+const API = "http://127.0.0.1:3000";
+let classCache = [];
+let testCache = [];
+let userCache = [];
+let applyCache = [];
+let noticeCache = [];
+let postCache = [];
+let applyFieldCache = [];
+let adminTab = "overview";
+let adminNav = "overview";
+let editClassId = null;
+let editTestId = null;
+let editApplyId = null;
+let editNoticeId = null;
+let editPostId = null;
+let editFieldId = null;
+let applyFilter = { search: "", status: "all" };
+
+const courses = [
+  { type: "live", tag: "라이브 LAB", title: "엔트리 코딩 기초 마스터", age: "초등 3~4학년", track: "A 스타터" },
+  { type: "live", tag: "라이브 LAB", title: "파이썬 퀴즈 프로그램 만들기", age: "초등 5학년 이상", track: "A 스타터" },
+  { type: "vod", tag: "VOD LAB", title: "프린터 활동지로 배우는 코딩 개념", age: "초등 저학년", track: "A 스타터" },
+  { type: "off", tag: "오프라인 LAB", title: "마이크로비트 게임 메이커", age: "초등 3학년 이상", track: "B 크리에이터" },
+  { type: "live", tag: "라이브 LAB", title: "피그마 UI 디자인 스타터", age: "초등 5학년 이상", track: "B 크리에이터" },
+  { type: "vod", tag: "프로젝트", title: "AI 코딩 프로젝트", age: "초등 5학년 이상", track: "C 프로젝트" },
+];
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function readJson(storage, key, fallback) {
+  try {
+    return JSON.parse(storage.getItem(key) || JSON.stringify(fallback));
+  } catch {
+    return fallback;
+  }
+}
+
+function token() {
+  return localStorage.getItem("oncodelab-token") || "";
+}
+
+function getSession() {
+  return readJson(localStorage, "oncodelab-session", null);
+}
+
+function isAdmin(user = getSession()) {
+  return (user?.role || "user") === "admin";
+}
+
+function saveAuth(result) {
+  localStorage.setItem("oncodelab-token", result.token);
+  localStorage.setItem("oncodelab-session", JSON.stringify(result.user));
+}
+
+function clearAuth() {
+  localStorage.removeItem("oncodelab-token");
+  localStorage.removeItem("oncodelab-session");
+}
+
+async function api(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (options.body) headers["Content-Type"] = "application/json";
+  if (token()) headers.Authorization = `Bearer ${token()}`;
+  let res;
+  try {
+    res = await fetch(API + path, { ...options, headers });
+  } catch {
+    throw new Error("서버에 연결할 수 없습니다. API 서버를 먼저 실행해 주세요.");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "요청에 실패했습니다.");
+  return data;
+}
+
+async function loadSiteData() {
+  try {
+    classCache = await api("/api/classes");
+    testCache = await api("/api/tests");
+    noticeCache = await api("/api/notices");
+    postCache = await api("/api/posts");
+    applyFieldCache = await api("/api/apply-fields");
+    if (isAdmin()) {
+      userCache = await api("/api/admin/users");
+      applyCache = await api("/api/admin/applications");
+    }
+  } catch (error) {
+    console.warn(error.message);
+  }
+}
+
+function unlockedIds() {
+  return readJson(sessionStorage, "oncodelab-unlocked-tests", []);
+}
+
+function unlockedBodies() {
+  return readJson(sessionStorage, "oncodelab-unlocked-bodies", {});
+}
+
+const OPENCHAT_QR = [
+  { src: "images/openchat-1.png", label: "오픈채팅 QR코드 1" },
+  { src: "images/openchat-2.png", label: "오픈채팅 QR코드 2" },
+];
+
+function openQrLightbox(index) {
+  const modal = document.getElementById("qr-modal");
+  const img = document.getElementById("qr-modal-img");
+  if (!modal || !img) return;
+  img.src = OPENCHAT_QR[index].src;
+  img.alt = OPENCHAT_QR[index].label;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function closeQrLightbox() {
+  const modal = document.getElementById("qr-modal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+function setupOpenChatQr() {
+  const contactSpan = document.querySelector(".topbar .wrap span:last-child");
+  if (!contactSpan || contactSpan.dataset.qrReady) return;
+  contactSpan.dataset.qrReady = "true";
+  contactSpan.classList.add("topbar-contact");
+  const original = contactSpan.textContent.trim();
+  const qrImgs = OPENCHAT_QR.map(
+    (qr, idx) => `<img src="${qr.src}" alt="${escapeHtml(qr.label)}" data-qr-index="${idx}" />`,
+  ).join("");
+  contactSpan.innerHTML = `<span class="topbar-line">${escapeHtml(original)}<span class="openchat-qr">${qrImgs}</span></span><small class="topbar-note">수업 진행 중에는 답변이 다소 늦어질 수 있는 점 양해 부탁드립니다.</small>`;
+  contactSpan.querySelectorAll(".openchat-qr img").forEach((img) => {
+    img.addEventListener("click", () => openQrLightbox(Number(img.dataset.qrIndex)));
+  });
+
+  if (!document.getElementById("qr-modal")) {
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      `<div class="auth-modal" id="qr-modal" aria-hidden="true">
+        <div class="auth-dim" data-qr-close></div>
+        <div class="auth-box" role="dialog" aria-modal="true" style="text-align:center">
+          <button class="auth-close" type="button" data-qr-close aria-label="닫기">×</button>
+          <img id="qr-modal-img" src="" alt="" style="width:100%;max-width:280px;border-radius:16px" />
+        </div>
+      </div>`,
+    );
+    document.querySelectorAll("[data-qr-close]").forEach((el) => el.addEventListener("click", closeQrLightbox));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeQrLightbox();
+    });
+  }
+}
+
+function toggleMenu() {
+  document.getElementById("nav")?.classList.toggle("open");
+}
+
+function toggleItem(event, el) {
+  if (window.innerWidth > 980) return;
+  event.preventDefault();
+  el.parentElement.classList.toggle("open");
+}
+
+function filterCourses(type, btn) {
+  document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+  btn.classList.add("active");
+  renderCourses(type);
+}
+
+function renderCourses(type = "all") {
+  const box = document.getElementById("course-list");
+  if (!box) return;
+  const list = type === "all" ? courses : courses.filter((item) => item.type === type);
+  box.innerHTML = list
+    .map(
+      (item) => `
+      <article class="card">
+        <div class="thumb ${item.type}">${item.track.split(" ")[0]}</div>
+        <div class="card-body"><small>${item.tag}</small><h3>${item.title}</h3><p>${item.age} · ${item.track}</p></div>
+      </article>`,
+    )
+    .join("");
+}
+
+function renderClassPage() {
+  const box = document.getElementById("class-list");
+  if (!box) return;
+  if (!classCache.length) {
+    box.classList.remove("cards");
+    box.innerHTML = `<p class="sub">현재 신청 가능한 교육이 없습니다. API 서버가 실행 중인지 확인해 주세요.</p>`;
+    return;
+  }
+  box.classList.add("cards");
+  box.innerHTML = classCache
+    .map(
+      (item) => `
+      <article class="card">
+        <div class="thumb ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</div>
+        <div class="card-body">
+          <small>${escapeHtml(item.status || "온라인 · 진행중")}</small>
+          <h3>${escapeHtml(item.title)}</h3>
+          <p>${escapeHtml(item.summary || "")}</p>
+          <a class="btn btn-orange" href="contact.html">신청하기</a>
+        </div>
+      </article>`,
+    )
+    .join("");
+}
+
+function fieldTypeLabel(type) {
+  return { text: "한 줄 텍스트", email: "이메일", tel: "전화번호", textarea: "여러 줄 텍스트", select: "선택 목록" }[type] || "한 줄 텍스트";
+}
+
+function fieldTypeOptions(selected) {
+  const types = [
+    { value: "text", label: "한 줄 텍스트" },
+    { value: "email", label: "이메일" },
+    { value: "tel", label: "전화번호" },
+    { value: "textarea", label: "여러 줄 텍스트" },
+    { value: "select", label: "선택 목록" },
+  ];
+  return types.map((t) => `<option value="${t.value}" ${t.value === (selected || "text") ? "selected" : ""}>${t.label}</option>`).join("");
+}
+
+function applyFieldInputHtml(field, value = "") {
+  const common = `name="${escapeHtml(field.id)}" ${field.required ? "required" : ""}`;
+  if (field.type === "textarea") {
+    return `<textarea ${common} rows="4" placeholder="${escapeHtml(field.label)}">${escapeHtml(value)}</textarea>`;
+  }
+  if (field.type === "select") {
+    const opts = (field.options || []).map((opt) => `<option ${opt === value ? "selected" : ""}>${escapeHtml(opt)}</option>`).join("");
+    return `<select ${common}><option value="">${escapeHtml(field.label)} 선택</option>${opts}</select>`;
+  }
+  const inputType = ["email", "tel"].includes(field.type) ? field.type : "text";
+  return `<input type="${inputType}" ${common} placeholder="${escapeHtml(field.label)}" value="${escapeHtml(value)}" />`;
+}
+
+function renderApplyFields() {
+  const box = document.getElementById("apply-fields");
+  if (!box) return;
+  box.innerHTML = applyFieldCache.map((field) => applyFieldInputHtml(field)).join("");
+}
+
+function applyDisplayName(item) {
+  const first = applyFieldCache[0];
+  return (first && item.values?.[first.id]) || item.type || "신청자";
+}
+
+function applyFieldsSummary(item) {
+  return applyFieldCache
+    .map((field) => item.values?.[field.id])
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function filteredApplyCache() {
+  const q = applyFilter.search.trim().toLowerCase();
+  return applyCache.filter((item) => {
+    if (applyFilter.status !== "all" && (item.status || "pending") !== applyFilter.status) return false;
+    if (!q) return true;
+    const haystack = [applyDisplayName(item), item.type, applyFieldsSummary(item), item.note].join(" ").toLowerCase();
+    return haystack.includes(q);
+  });
+}
+
+function fillInquiryOptions() {
+  const select = document.getElementById("class-select");
+  if (!select) return;
+  select.innerHTML = [
+    `<option>온라인 Class 신청</option>`,
+    ...classCache.map((item) => `<option>${escapeHtml(item.title)}</option>`),
+    `<option>TEST 진단</option>`,
+  ].join("");
+}
+
+async function submitInquiry(event) {
+  event.preventDefault();
+  const form = event.target;
+  const data = Object.fromEntries(new FormData(form));
+  if (data.kind === "instructor") {
+    form.style.display = "none";
+    document.getElementById("success")?.classList.add("show");
+    return;
+  }
+  try {
+    await api("/api/applications", { method: "POST", body: JSON.stringify(data) });
+    form.style.display = "none";
+    document.getElementById("success")?.classList.add("show");
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+function showTopic(topic, btn) {
+  document.querySelectorAll(".topic-btn").forEach((item) => item.classList.remove("active"));
+  btn.classList.add("active");
+  document.querySelectorAll(".topic-card").forEach((card) => {
+    card.style.display = topic === "all" || card.dataset.topic === topic ? "" : "none";
+  });
+}
+
+function isValidPhone(phone) {
+  return /^01[016789]\d{7,8}$/.test(String(phone || "").replace(/\D/g, ""));
+}
+
+function isValidPassword(password) {
+  return String(password || "").length >= 8 && /[A-Za-z]/.test(password) && /[0-9]/.test(password);
+}
+
+function showAuthMsg(text, isError) {
+  const msg = document.getElementById("auth-msg");
+  if (!msg) return;
+  msg.textContent = text;
+  msg.classList.add("show", isError ? "error" : "ok");
+  msg.classList.remove(isError ? "ok" : "error");
+}
+
+function openAuth(tab) {
+  const modal = document.getElementById("auth-modal");
+  if (!modal) return;
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+  document.querySelectorAll(".auth-tabs [data-auth-tab]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.authTab === tab);
+  });
+  document.getElementById("login-form")?.classList.toggle("active", tab === "login");
+  document.getElementById("signup-form")?.classList.toggle("active", tab === "signup");
+  document.getElementById("auth-title").textContent = tab === "login" ? "로그인" : "회원가입";
+  document.getElementById("auth-hint").textContent =
+    tab === "login" ? "온코드랩 계정으로 로그인하세요." : "비밀번호는 영문과 숫자를 포함해 8자 이상으로 만들어 주세요.";
+  const msg = document.getElementById("auth-msg");
+  if (msg && !msg.classList.contains("ok")) {
+    msg.classList.remove("show", "error", "ok");
+    msg.textContent = "";
+  }
+}
+
+function closeAuth() {
+  const modal = document.getElementById("auth-modal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+function refreshAuthButton() {
+  const session = getSession();
+  const actions = document.querySelector(".header-actions");
+  const loginBtn = actions?.querySelector("[data-auth='login']");
+  document.querySelector("[data-auth='mypage']")?.remove();
+  document.querySelector("[data-auth='admin']")?.remove();
+  if (session && actions) {
+    const mypage = Object.assign(document.createElement("a"), {
+      className: "btn btn-line",
+      href: "mypage.html",
+      textContent: "마이페이지",
+    });
+    mypage.dataset.auth = "mypage";
+    actions.insertBefore(mypage, loginBtn || actions.firstChild);
+    if (isAdmin()) {
+      const adminBtn = Object.assign(document.createElement("a"), {
+        className: "btn btn-green",
+        href: "admin.html",
+        textContent: "어드민",
+      });
+      adminBtn.dataset.auth = "admin";
+      actions.insertBefore(adminBtn, loginBtn || actions.firstChild);
+    }
+  }
+  document.querySelectorAll("[data-auth='login']").forEach((btn) => {
+    btn.textContent = session ? "로그아웃" : "로그인";
+  });
+}
+
+async function refreshAccountViews() {
+  refreshAuthButton();
+  await loadSiteData();
+  initMypage();
+  initAdmin();
+  initTests();
+  renderClassPage();
+  fillInquiryOptions();
+  renderApplyFields();
+  initNotices();
+  initPosts();
+}
+
+function formatBoardDate(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  const pad = (num) => String(num).padStart(2, "0");
+  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}`;
+}
+
+function boardListHtml(list, page) {
+  if (!list.length) return `<p class="sub" style="padding:24px 0">등록된 글이 없습니다.</p>`;
+  return `<div class="board">${list
+    .map(
+      (item) => `<a href="${page}.html?id=${encodeURIComponent(item.id)}"><em>${escapeHtml(item.tag || "")}</em><b>${escapeHtml(item.title)}</b><span>${formatBoardDate(item.createdAt)}</span></a>`,
+    )
+    .join("")}</div>`;
+}
+
+function boardDetailHtml(item, page) {
+  if (!item) {
+    return `<div class="profile-card"><h2>글을 찾을 수 없습니다.</h2><p style="margin-top:18px"><a class="btn btn-line" href="${page}.html">목록으로</a></p></div>`;
+  }
+  return `<div class="profile-card">
+    <p class="kicker">${escapeHtml(item.tag || "")}</p>
+    <h2>${escapeHtml(item.title)}</h2>
+    <p class="sub">${formatBoardDate(item.createdAt)}</p>
+    <div class="doc-body">${escapeHtml(item.body || "")}</div>
+    <p style="margin-top:24px"><a class="btn btn-line" href="${page}.html">목록으로</a></p>
+  </div>`;
+}
+
+function initBoard(boxId, list, page) {
+  const box = document.getElementById(boxId);
+  if (!box) return;
+  const id = new URLSearchParams(location.search).get("id");
+  box.innerHTML = id ? boardDetailHtml(list.find((item) => item.id === id), page) : boardListHtml(list, page);
+}
+
+function initNotices() {
+  initBoard("notice-list", noticeCache, "notice");
+}
+
+function initPosts() {
+  initBoard("post-list", postCache, "community");
+}
+
+function setupAuth() {
+  const actions = document.querySelector(".header-actions");
+  if (actions && !actions.querySelector("[data-auth='login']")) {
+    const loginBtn = Object.assign(document.createElement("a"), {
+      className: "btn btn-line",
+      href: "#",
+      textContent: "로그인",
+    });
+    loginBtn.dataset.auth = "login";
+    actions.insertBefore(loginBtn, actions.querySelector(".btn-orange") || actions.firstChild);
+  }
+
+  if (!document.getElementById("auth-modal")) {
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      `<div class="auth-modal" id="auth-modal" aria-hidden="true">
+        <div class="auth-dim" data-auth-close></div>
+        <div class="auth-box" role="dialog" aria-modal="true">
+          <button class="auth-close" type="button" data-auth-close aria-label="닫기">×</button>
+          <div class="auth-tabs">
+            <button type="button" class="active" data-auth-tab="login">로그인</button>
+            <button type="button" data-auth-tab="signup">회원가입</button>
+          </div>
+          <h2 id="auth-title">로그인</h2>
+          <p class="hint" id="auth-hint">온코드랩 계정으로 로그인하세요.</p>
+          <p class="auth-msg" id="auth-msg"></p>
+          <form class="auth-form active" id="login-form">
+            <input required type="email" name="email" placeholder="이메일" autocomplete="email" />
+            <input required type="password" name="password" placeholder="비밀번호" autocomplete="current-password" />
+            <button class="btn btn-orange" type="submit">로그인</button>
+            <p class="auth-switch">아직 회원이 아니신가요? <button type="button" data-auth-tab="signup">회원가입</button></p>
+          </form>
+          <form class="auth-form" id="signup-form">
+            <input required name="name" placeholder="이름" autocomplete="name" />
+            <input required type="email" name="email" placeholder="이메일" autocomplete="email" />
+            <input required type="tel" name="phone" placeholder="전화번호 (010-0000-0000)" autocomplete="tel" />
+            <input required type="password" name="password" placeholder="비밀번호 (영문+숫자 8자 이상)" minlength="8" autocomplete="new-password" />
+            <input required type="password" name="password2" placeholder="비밀번호 확인" minlength="8" autocomplete="new-password" />
+            <button class="btn btn-green" type="submit">회원가입</button>
+            <p class="auth-switch">이미 계정이 있나요? <button type="button" data-auth-tab="login">로그인</button></p>
+          </form>
+        </div>
+      </div>`,
+    );
+  }
+
+  document.querySelectorAll("[data-auth='login']").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      if (getSession()) {
+        api("/api/auth/logout", { method: "POST" }).catch(() => {});
+        clearAuth();
+        refreshAccountViews();
+        return;
+      }
+      openAuth("login");
+    });
+  });
+  document.querySelectorAll("[data-auth-close]").forEach((el) => el.addEventListener("click", closeAuth));
+  document.querySelectorAll("[data-auth-tab]").forEach((el) => {
+    el.addEventListener("click", () => openAuth(el.dataset.authTab));
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeAuth();
+  });
+
+  document.getElementById("login-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.target));
+    try {
+      saveAuth(await api("/api/auth/login", { method: "POST", body: JSON.stringify(data) }));
+      closeAuth();
+      await refreshAccountViews();
+    } catch (error) {
+      showAuthMsg(error.message, true);
+    }
+  });
+
+  document.getElementById("signup-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    const { name, email, phone, password, password2 } = Object.fromEntries(new FormData(form));
+    if (!isValidPassword(password)) return showAuthMsg("비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.", true);
+    if (password !== password2) return showAuthMsg("비밀번호가 서로 다릅니다.", true);
+    if (!isValidPhone(phone)) return showAuthMsg("전화번호를 올바르게 입력해 주세요. 예: 010-1234-5678", true);
+    try {
+      saveAuth(await api("/api/auth/signup", { method: "POST", body: JSON.stringify({ name, email, phone, password }) }));
+      form.reset();
+      closeAuth();
+      await refreshAccountViews();
+    } catch (error) {
+      showAuthMsg(error.message, true);
+    }
+  });
+
+  refreshAuthButton();
+}
+
+function noticeCard(title, text, action) {
+  return `<div class="profile-card"><h2>${title}</h2><p class="sub">${text}</p>${action || ""}</div>`;
+}
+
+function initMypage() {
+  const box = document.getElementById("mypage");
+  if (!box) return;
+  const me = getSession();
+  if (!me) {
+    box.innerHTML = noticeCard("로그인이 필요합니다", "마이페이지는 로그인 후 이용할 수 있습니다.", `<p><a class="btn btn-orange" href="#" data-auth="login">로그인</a></p>`);
+    box.querySelector("[data-auth='login']")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      openAuth("login");
+    });
+    return;
+  }
+  box.innerHTML = `
+    <div class="profile-card">
+      <p class="kicker">MY PAGE</p>
+      <h2>${escapeHtml(me.name)} 님</h2>
+      <p>이메일 ${escapeHtml(me.email)}</p>
+      <p>전화번호 ${escapeHtml(me.phone || "-")}</p>
+      <p>권한 <span class="role-badge ${isAdmin(me) ? "admin" : ""}">${isAdmin(me) ? "관리자" : "일반 회원"}</span></p>
+      ${isAdmin(me) ? `<p style="margin-top:18px"><a class="btn btn-green" href="admin.html">어드민 페이지로 이동</a></p>` : ""}
+    </div>`;
+}
+
+function adminItem(item, extra, actions) {
+  return `<div class="admin-item"><div><b>${escapeHtml(item.title)}</b><p>${extra}</p></div>${actions}</div>`;
+}
+
+function formatAdminDate(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return "-";
+  const pad = (num) => String(num).padStart(2, "0");
+  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function applyCount(status) {
+  return applyCache.filter((item) => (item.status || "pending") === status).length;
+}
+
+function applyClassMeta(item) {
+  const course = classCache.find((entry) => entry.title === item.type);
+  const tone = course?.tone || "etc";
+  const label = (course?.label || item.type || "수업").slice(0, 4);
+  return { tone: ["live", "vod", "off"].includes(tone) ? tone : "etc", label, title: item.type || "수업 신청" };
+}
+
+function initAdmin() {
+  const box = document.getElementById("admin");
+  if (!box) return;
+  if (!getSession()) {
+    box.className = "admin-gate";
+    box.innerHTML = noticeCard("로그인이 필요합니다", "어드민 페이지는 관리자만 이용할 수 있습니다.", `<p><a class="btn btn-orange" href="#" data-auth="login">로그인</a></p>`);
+    box.querySelector("[data-auth='login']")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      openAuth("login");
+    });
+    return;
+  }
+  if (!isAdmin()) {
+    box.className = "admin-gate";
+    box.innerHTML = noticeCard("접근 권한이 없습니다", "일반 회원은 어드민 페이지를 볼 수 없습니다.", `<p><a class="btn btn-line" href="index.html">홈으로 이동</a></p>`);
+    return;
+  }
+
+  const me = getSession();
+  const editingClass = classCache.find((item) => item.id === editClassId);
+  const editingTest = testCache.find((item) => item.id === editTestId);
+  const editingApply = applyCache.find((item) => item.id === editApplyId);
+  const editingNotice = noticeCache.find((item) => item.id === editNoticeId);
+  const editingPost = postCache.find((item) => item.id === editPostId);
+  const editingField = applyFieldCache.find((item) => item.id === editFieldId);
+  const tabs = [
+    { id: "overview", label: "대시보드" },
+    { id: "class", label: "Class 관리" },
+    { id: "test", label: "TEST" },
+    { id: "notice", label: "공지사항" },
+    { id: "community", label: "커뮤니티" },
+    { id: "apply", label: "수업 신청" },
+    { id: "fields", label: "신청서 입력 항목" },
+    { id: "users", label: "가입자 목록" },
+  ];
+  box.className = "admin-shell";
+  box.innerHTML = `
+    <aside class="dash-sidebar">
+      <div class="dash-brand">
+        <h1>관리자 대시보드</h1>
+        <p>${escapeHtml(me.name)} 관리자</p>
+      </div>
+      <nav class="dash-nav">${tabs
+        .map((tab) => {
+          return `<button type="button" data-admin-tab="${tab.id}" class="${adminNav === tab.id ? "active" : ""}">${tab.label}</button>`;
+        })
+        .join("")}</nav>
+      <div class="dash-check">
+        <h3>운영 체크리스트</h3>
+        <ul>
+          <li>신규 수업 신청을 확인했나요?</li>
+          <li>접수 상태를 업데이트했나요?</li>
+          <li>Class 정보를 점검했나요?</li>
+          <li>TEST 비밀번호를 확인했나요?</li>
+          <li>회원 권한을 확인했나요?</li>
+        </ul>
+      </div>
+      <div class="dash-side-links">
+        <a href="index.html">사이트로 이동</a>
+        <button type="button" data-admin-logout>로그아웃</button>
+      </div>
+    </aside>
+    <main class="dash-main">
+      ${adminTab === "overview" ? adminOverview() : ""}
+      ${adminTab === "class" ? adminClassPanel(editingClass) : ""}
+      ${adminTab === "test" ? adminTestPanel(editingTest) : ""}
+      ${adminTab === "apply" ? adminApplyPanel(editingApply) : ""}
+      ${adminTab === "fields" ? adminFieldsPanel(editingField) : ""}
+      ${adminTab === "notice" ? adminNoticePanel(editingNotice) : ""}
+      ${adminTab === "community" ? adminPostPanel(editingPost) : ""}
+      ${adminTab === "users" ? adminUsersPanel() : ""}
+    </main>
+  `;
+
+  box.onclick = (event) => {
+    if (event.target.closest("[data-admin-logout]")) {
+      api("/api/auth/logout", { method: "POST" }).catch(() => {});
+      clearAuth();
+      refreshAccountViews();
+      return;
+    }
+    const tab = event.target.closest("[data-admin-tab]");
+    if (tab) {
+      adminNav = tab.dataset.adminTab;
+      adminTab = adminNav;
+      if (adminTab !== "class") editClassId = null;
+      if (adminTab !== "test") editTestId = null;
+      if (adminTab !== "apply") editApplyId = null;
+      if (adminTab !== "notice") editNoticeId = null;
+      if (adminTab !== "community") editPostId = null;
+      if (adminTab !== "fields") editFieldId = null;
+      initAdmin();
+      return;
+    }
+    const editClass = event.target.closest("[data-edit-class]");
+    if (editClass) {
+      adminTab = "class";
+      adminNav = "class";
+      editClassId = editClass.dataset.editClass;
+      initAdmin();
+      return;
+    }
+    const editTest = event.target.closest("[data-edit-test]");
+    if (editTest) {
+      adminTab = "test";
+      adminNav = "test";
+      editTestId = editTest.dataset.editTest;
+      initAdmin();
+      return;
+    }
+    const editApply = event.target.closest("[data-edit-apply]");
+    if (editApply) {
+      adminTab = "apply";
+      adminNav = "apply";
+      editApplyId = editApply.dataset.editApply;
+      initAdmin();
+      return;
+    }
+    const editNotice = event.target.closest("[data-edit-notice]");
+    if (editNotice) {
+      adminTab = "notice";
+      adminNav = "notice";
+      editNoticeId = editNotice.dataset.editNotice;
+      initAdmin();
+      return;
+    }
+    const editPost = event.target.closest("[data-edit-post]");
+    if (editPost) {
+      adminTab = "community";
+      adminNav = "community";
+      editPostId = editPost.dataset.editPost;
+      initAdmin();
+      return;
+    }
+    const editField = event.target.closest("[data-edit-field]");
+    if (editField) {
+      adminTab = "fields";
+      adminNav = "fields";
+      editFieldId = editField.dataset.editField;
+      initAdmin();
+      return;
+    }
+    const moveFieldUp = event.target.closest("[data-move-field-up]");
+    if (moveFieldUp) return moveApplyField(moveFieldUp.dataset.moveFieldUp, -1);
+    const moveFieldDown = event.target.closest("[data-move-field-down]");
+    if (moveFieldDown) return moveApplyField(moveFieldDown.dataset.moveFieldDown, 1);
+    const filterBtn = event.target.closest("[data-apply-filter]");
+    if (filterBtn) {
+      applyFilter.status = filterBtn.dataset.applyFilter;
+      initAdmin();
+      return;
+    }
+    if (event.target.closest("[data-cancel-class]")) {
+      editClassId = null;
+      adminNav = "class";
+      initAdmin();
+    }
+    if (event.target.closest("[data-cancel-test]")) {
+      editTestId = null;
+      initAdmin();
+    }
+    if (event.target.closest("[data-cancel-apply]")) {
+      editApplyId = null;
+      initAdmin();
+    }
+    if (event.target.closest("[data-cancel-notice]")) {
+      editNoticeId = null;
+      initAdmin();
+    }
+    if (event.target.closest("[data-cancel-post]")) {
+      editPostId = null;
+      initAdmin();
+    }
+    if (event.target.closest("[data-cancel-field]")) {
+      editFieldId = null;
+      initAdmin();
+    }
+    const delClass = event.target.closest("[data-delete-class]");
+    if (delClass) deleteAdminItem("classes", delClass.dataset.deleteClass, classCache);
+    const delTest = event.target.closest("[data-delete-test]");
+    if (delTest) deleteAdminItem("tests", delTest.dataset.deleteTest, testCache);
+    const delApply = event.target.closest("[data-delete-apply]");
+    if (delApply) deleteAdminItem("applications", delApply.dataset.deleteApply, applyCache);
+    const delNotice = event.target.closest("[data-delete-notice]");
+    if (delNotice) deleteAdminItem("notices", delNotice.dataset.deleteNotice, noticeCache);
+    const delPost = event.target.closest("[data-delete-post]");
+    if (delPost) deleteAdminItem("posts", delPost.dataset.deletePost, postCache);
+    const delField = event.target.closest("[data-delete-field]");
+    if (delField) deleteAdminItem("apply-fields", delField.dataset.deleteField, applyFieldCache);
+    const roleBtn = event.target.closest("[data-role-email]");
+    if (roleBtn) setUserRole(roleBtn.dataset.roleEmail, roleBtn.dataset.roleValue);
+  };
+  box.querySelector("#class-form")?.addEventListener("submit", (event) => saveAdminClass(event));
+  box.querySelector("#test-form")?.addEventListener("submit", (event) => saveAdminTest(event));
+  box.querySelector("#apply-form")?.addEventListener("submit", (event) => saveAdminApply(event));
+  box.querySelector("#notice-form")?.addEventListener("submit", (event) => saveAdminNotice(event));
+  box.querySelector("#post-form")?.addEventListener("submit", (event) => saveAdminPost(event));
+  box.querySelector("#field-form")?.addEventListener("submit", (event) => saveAdminField(event));
+  box.querySelectorAll("[data-quick-status]").forEach((select) => {
+    select.addEventListener("change", () => quickUpdateApplyStatus(select.dataset.quickStatus, select.value));
+  });
+  box.querySelector("#apply-search")?.addEventListener("input", (event) => {
+    applyFilter.search = event.target.value;
+    const cursor = event.target.selectionStart;
+    initAdmin();
+    const input = document.getElementById("apply-search");
+    if (input) {
+      input.focus();
+      input.setSelectionRange(cursor, cursor);
+    }
+  });
+}
+
+function adminOverview() {
+  const recent = applyCache.slice(0, 8);
+  const rows = recent.length
+    ? recent
+        .map((item) => {
+          const meta = applyClassMeta(item);
+          const status = item.status || "pending";
+          return `<tr data-edit-apply="${escapeHtml(item.id)}">
+            <td>
+              <div class="dash-class">
+                <div class="dash-thumb ${meta.tone}">${escapeHtml(meta.label)}</div>
+                <div>
+                  <b>${escapeHtml(meta.title)}</b>
+                  <span>${escapeHtml(applyFieldsSummary(item) || "수업 신청")}</span>
+                </div>
+              </div>
+            </td>
+            <td>${formatAdminDate(item.createdAt)}<span class="dash-sub">${escapeHtml(item.id)}</span></td>
+            <td>${escapeHtml(applyDisplayName(item))}</td>
+            <td><span class="dash-status is-${escapeHtml(status)}">${applyStatus(status)}</span></td>
+          </tr>`;
+        })
+        .join("")
+    : `<tr><td class="empty-row" colspan="4">최근 수업 신청이 없습니다.</td></tr>`;
+  return `
+    <section class="dash-card">
+      <div class="dash-card-head">
+        <h2>대시보드 요약</h2>
+        <p>수업 신청·회원·Class 현황을 한눈에 확인하세요.</p>
+      </div>
+      <div class="admin-stats">
+        <div class="admin-stat"><span>전체 신청</span><b>${applyCache.length}건</b></div>
+        <div class="admin-stat"><span>접수 대기</span><b>${applyCount("pending")}건</b></div>
+        <div class="admin-stat"><span>확인 완료</span><b>${applyCount("confirmed")}건</b></div>
+        <div class="admin-stat"><span>상담진행중</span><b>${applyCount("counseling")}건</b></div>
+        <div class="admin-stat"><span>처리 완료</span><b>${applyCount("done")}건</b></div>
+        <div class="admin-stat"><span>가입자 수</span><b>${userCache.length}명</b></div>
+        <div class="admin-stat"><span>등록 Class</span><b>${classCache.length}개</b></div>
+        <div class="admin-stat"><span>공지사항</span><b>${noticeCache.length}건</b></div>
+        <div class="admin-stat"><span>커뮤니티 글</span><b>${postCache.length}건</b></div>
+      </div>
+    </section>
+    <section class="dash-card">
+      <div class="dash-card-head"><h2>최근 수업 신청</h2></div>
+      <div class="dash-table-wrap">
+        <table class="dash-table">
+          <thead>
+            <tr>
+              <th>수업 정보</th>
+              <th>신청일자</th>
+              <th>신청자 정보</th>
+              <th>신청상태</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </section>`;
+}
+
+function adminClassPanel(editing) {
+  return `
+    <div class="profile-card">
+      <h2>${editing ? "Class 수정" : "Class 추가"}</h2>
+      <form class="admin-form" id="class-form">
+        <div class="admin-form-row">
+          <input required name="label" maxlength="16" placeholder="카테고리 (예: AI, CODE)" value="${escapeHtml(editing?.label || "")}" />
+          <select name="tone">
+            <option value="live" ${!editing || editing.tone === "live" ? "selected" : ""}>테두리 파랑</option>
+            <option value="vod" ${editing?.tone === "vod" ? "selected" : ""}>테두리 초록</option>
+            <option value="off" ${editing?.tone === "off" ? "selected" : ""}>테두리 주황</option>
+          </select>
+        </div>
+        <input name="status" placeholder="상태 (예: 온라인 · 진행중)" value="${escapeHtml(editing?.status || "온라인 · 진행중")}" />
+        <input required name="title" placeholder="교육 제목" value="${escapeHtml(editing?.title || "")}" />
+        <textarea required name="summary" rows="3" placeholder="교육 설명">${escapeHtml(editing?.summary || "")}</textarea>
+        <div class="admin-form-actions">
+          <button class="btn btn-green" type="submit">${editing ? "수정 저장" : "교육 추가"}</button>
+          ${editing ? `<button class="btn btn-line" type="button" data-cancel-class>취소</button>` : ""}
+        </div>
+      </form>
+    </div>
+    <div class="profile-card" style="margin-top:20px"><h2>Class 목록</h2>
+      ${classCache.map((item) => adminItem(item, `${escapeHtml(item.label || "")} · ${escapeHtml(item.summary || "")}`, `<div class="admin-item-actions"><button class="btn btn-line" type="button" data-edit-class="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-class="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 교육이 없습니다.</p>`}
+    </div>`;
+}
+
+function adminTestPanel(editing) {
+  return `
+    <div class="profile-card">
+      <h2>${editing ? "TEST 수정" : "TEST 추가"}</h2>
+      <form class="admin-form" id="test-form" data-file-url="${escapeHtml(editing?.fileUrl || "")}" data-file-name="${escapeHtml(editing?.fileName || "")}">
+        <input required name="title" placeholder="TEST 제목" value="${escapeHtml(editing?.title || "")}" />
+        <input required name="summary" placeholder="한 줄 소개" value="${escapeHtml(editing?.summary || "")}" />
+        <input required name="password" placeholder="입장 비밀번호" value="${escapeHtml(editing?.password || "")}" />
+        <textarea name="body" rows="5" placeholder="잠금 해제 후 보여줄 안내 (선택)">${escapeHtml(editing?.body || "")}</textarea>
+        <input name="linkUrl" placeholder="외부 링크 (선택, 예: 구글 폼·드라이브 주소)" value="${escapeHtml(editing?.linkUrl || "")}" />
+        <input type="file" name="file" />
+        ${
+          editing?.fileName
+            ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><input type="checkbox" name="removeFile" /> 현재 첨부 파일(${escapeHtml(editing.fileName)}) 삭제</label>`
+            : ""
+        }
+        <div class="admin-form-actions">
+          <button class="btn btn-green" type="submit">${editing ? "수정 저장" : "TEST 추가"}</button>
+          ${editing ? `<button class="btn btn-line" type="button" data-cancel-test>취소</button>` : ""}
+        </div>
+      </form>
+    </div>
+    <div class="profile-card" style="margin-top:20px"><h2>TEST 목록</h2>
+      ${testCache.map((item) => adminItem(item, `${escapeHtml(item.summary || "")}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""}`, `<div class="admin-item-actions"><span class="role-badge admin">${escapeHtml(item.password || "")}</span><button class="btn btn-line" type="button" data-edit-test="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-test="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 TEST가 없습니다.</p>`}
+    </div>`;
+}
+
+function applyStatus(status) {
+  return { pending: "접수", confirmed: "확인", counseling: "상담진행중", done: "완료" }[status] || "접수";
+}
+
+function classOptions(selected) {
+  const titles = ["온라인 Class 신청", ...classCache.map((item) => item.title), "TEST 진단"];
+  return titles
+    .map((title) => `<option ${title === selected ? "selected" : ""}>${escapeHtml(title)}</option>`)
+    .join("");
+}
+
+function statusSelectOptions(selected) {
+  return `
+    <option value="pending" ${selected === "pending" ? "selected" : ""}>접수</option>
+    <option value="confirmed" ${selected === "confirmed" ? "selected" : ""}>확인</option>
+    <option value="counseling" ${selected === "counseling" ? "selected" : ""}>상담진행중</option>
+    <option value="done" ${selected === "done" ? "selected" : ""}>완료</option>`;
+}
+
+function adminApplyPanel(editing) {
+  const fieldInputs = applyFieldCache.map((field) => applyFieldInputHtml(field, editing?.values?.[field.id] || "")).join("");
+  const statusTabs = [
+    { id: "all", label: "전체" },
+    { id: "pending", label: "접수" },
+    { id: "confirmed", label: "확인" },
+    { id: "counseling", label: "상담진행중" },
+    { id: "done", label: "완료" },
+  ];
+  const list = filteredApplyCache();
+  return `
+    <div class="profile-card">
+      <h2>${editing ? "수업 신청 수정" : "수업 신청 추가"}</h2>
+      <p class="sub">보통은 방문자가 수업 신청 페이지에서 직접 신청하면 자동으로 아래 목록에 쌓입니다. 이 폼은 전화·방문 상담처럼 관리자가 대신 등록할 때만 사용하세요.</p>
+      <form class="admin-form" id="apply-form">
+        ${fieldInputs}
+        <div class="admin-form-row">
+          <select name="type">${classOptions(editing?.type)}</select>
+          <select name="status">${statusSelectOptions(editing?.status || "pending")}</select>
+        </div>
+        <textarea name="note" rows="3" placeholder="상담 메모 (관리자만 보는 내부 메모)">${escapeHtml(editing?.note || "")}</textarea>
+        <div class="admin-form-actions">
+          <button class="btn btn-green" type="submit">${editing ? "수정 저장" : "신청 추가"}</button>
+          ${editing ? `<button class="btn btn-line" type="button" data-cancel-apply>취소</button>` : ""}
+        </div>
+      </form>
+    </div>
+    <div class="profile-card" style="margin-top:20px">
+      <h2>수업 신청 내역</h2>
+      <input type="text" id="apply-search" placeholder="이름·연락처·메모 검색" value="${escapeHtml(applyFilter.search)}" style="width:100%;margin-top:12px" />
+      <div class="tabs" style="margin:14px 0">
+        ${statusTabs.map((tab) => `<button type="button" class="tab ${applyFilter.status === tab.id ? "active" : ""}" data-apply-filter="${tab.id}">${tab.label}</button>`).join("")}
+      </div>
+      ${
+        list
+          .map((item) => {
+            const summary = `${escapeHtml(item.type || "")} · ${escapeHtml(applyFieldsSummary(item))}${item.note ? ` · 메모: ${escapeHtml(item.note)}` : ""}`;
+            return adminItem(
+              { title: applyDisplayName(item) },
+              summary,
+              `<div class="admin-item-actions"><select data-quick-status="${escapeHtml(item.id)}">${statusSelectOptions(item.status || "pending")}</select><button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button></div>`,
+            );
+          })
+          .join("") || `<p class="sub">${applyCache.length ? "검색 결과가 없습니다." : "신청 내역이 없습니다."}</p>`
+      }
+    </div>`;
+}
+
+function adminFieldsPanel(editing) {
+  const sorted = [...applyFieldCache].sort((a, b) => a.order - b.order);
+  return `
+    <div class="profile-card">
+      <h2>${editing ? "입력 항목 수정" : "입력 항목 추가"}</h2>
+      <p class="sub">수업 신청 페이지에서 방문자가 채워야 하는 입력 칸을 자유롭게 구성하세요.</p>
+      <form class="admin-form" id="field-form">
+        <div class="admin-form-row">
+          <input required name="label" placeholder="항목 이름 (예: 학년, 희망 시간대)" value="${escapeHtml(editing?.label || "")}" />
+          <select name="type">${fieldTypeOptions(editing?.type)}</select>
+        </div>
+        <input name="options" placeholder="선택 목록일 때만: 옵션을 쉼표로 구분 (예: 오전,오후,저녁)" value="${escapeHtml((editing?.options || []).join(", "))}" />
+        <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><input type="checkbox" name="required" ${!editing || editing.required ? "checked" : ""} /> 필수 입력</label>
+        <div class="admin-form-actions">
+          <button class="btn btn-green" type="submit">${editing ? "수정 저장" : "항목 추가"}</button>
+          ${editing ? `<button class="btn btn-line" type="button" data-cancel-field>취소</button>` : ""}
+        </div>
+      </form>
+    </div>
+    <div class="profile-card" style="margin-top:20px"><h2>입력 항목 목록</h2>
+      ${
+        sorted
+          .map(
+            (field, idx) => `<div class="admin-item"><div><b>${escapeHtml(field.label)}</b><p>${fieldTypeLabel(field.type)}${field.required ? " · 필수" : " · 선택"}${field.options?.length ? " · " + escapeHtml(field.options.join(", ")) : ""}</p></div>
+        <div class="admin-item-actions">
+          <button class="btn btn-line" type="button" data-move-field-up="${escapeHtml(field.id)}" ${idx === 0 ? "disabled" : ""}>위로</button>
+          <button class="btn btn-line" type="button" data-move-field-down="${escapeHtml(field.id)}" ${idx === sorted.length - 1 ? "disabled" : ""}>아래로</button>
+          <button class="btn btn-line" type="button" data-edit-field="${escapeHtml(field.id)}">수정</button>
+          <button class="btn btn-orange" type="button" data-delete-field="${escapeHtml(field.id)}">삭제</button>
+        </div>
+      </div>`,
+          )
+          .join("") || `<p class="sub">등록된 입력 항목이 없습니다.</p>`
+      }
+    </div>`;
+}
+
+function adminNoticePanel(editing) {
+  return `
+    <div class="profile-card">
+      <h2>${editing ? "공지 수정" : "공지 추가"}</h2>
+      <form class="admin-form" id="notice-form">
+        <input required name="tag" maxlength="8" placeholder="분류 (예: 공지, 안내)" value="${escapeHtml(editing?.tag || "공지")}" />
+        <input required name="title" placeholder="제목" value="${escapeHtml(editing?.title || "")}" />
+        <textarea required name="body" rows="6" placeholder="내용">${escapeHtml(editing?.body || "")}</textarea>
+        <div class="admin-form-actions">
+          <button class="btn btn-green" type="submit">${editing ? "수정 저장" : "공지 추가"}</button>
+          ${editing ? `<button class="btn btn-line" type="button" data-cancel-notice>취소</button>` : ""}
+        </div>
+      </form>
+    </div>
+    <div class="profile-card" style="margin-top:20px"><h2>공지 목록</h2>
+      ${noticeCache.map((item) => adminItem(item, `${escapeHtml(item.tag || "")} · ${formatAdminDate(item.createdAt)}`, `<div class="admin-item-actions"><button class="btn btn-line" type="button" data-edit-notice="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-notice="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 공지가 없습니다.</p>`}
+    </div>`;
+}
+
+function adminPostPanel(editing) {
+  return `
+    <div class="profile-card">
+      <h2>${editing ? "커뮤니티 글 수정" : "커뮤니티 글 추가"}</h2>
+      <form class="admin-form" id="post-form">
+        <input required name="tag" maxlength="8" placeholder="분류 (예: 후기, 질문, 공유)" value="${escapeHtml(editing?.tag || "후기")}" />
+        <input required name="title" placeholder="제목" value="${escapeHtml(editing?.title || "")}" />
+        <textarea required name="body" rows="6" placeholder="내용">${escapeHtml(editing?.body || "")}</textarea>
+        <div class="admin-form-actions">
+          <button class="btn btn-green" type="submit">${editing ? "수정 저장" : "글 추가"}</button>
+          ${editing ? `<button class="btn btn-line" type="button" data-cancel-post>취소</button>` : ""}
+        </div>
+      </form>
+    </div>
+    <div class="profile-card" style="margin-top:20px"><h2>커뮤니티 글 목록</h2>
+      ${postCache.map((item) => adminItem(item, `${escapeHtml(item.tag || "")} · ${formatAdminDate(item.createdAt)}`, `<div class="admin-item-actions"><button class="btn btn-line" type="button" data-edit-post="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-post="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 글이 없습니다.</p>`}
+    </div>`;
+}
+
+function adminUsersPanel() {
+  return `<div class="profile-card"><h2>회원 관리</h2>
+    ${userCache
+      .map((item) => {
+        const admin = isAdmin(item);
+        return `<div class="user-row"><div><b>${escapeHtml(item.name)}</b><p>${escapeHtml(item.email)}</p><p>${escapeHtml(item.phone || "-")}</p></div>
+          <span class="role-badge ${admin ? "admin" : ""}">${admin ? "관리자" : "일반 회원"}</span>
+          <button class="btn ${admin ? "btn-line" : "btn-green"}" type="button" data-role-email="${escapeHtml(item.email)}" data-role-value="${admin ? "user" : "admin"}">${admin ? "일반 회원으로 변경" : "관리자 부여"}</button></div>`;
+      })
+      .join("")}
+  </div>`;
+}
+
+async function saveItem(kind, id, body) {
+  try {
+    const path = id ? `/api/admin/${kind}/${encodeURIComponent(id)}` : `/api/admin/${kind}`;
+    await api(path, { method: id ? "PUT" : "POST", body: JSON.stringify(body) });
+    await refreshAccountViews();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function saveAdminClass(event) {
+  event.preventDefault();
+  const form = event.target;
+  const id = editClassId;
+  editClassId = null;
+  adminTab = "class";
+  adminNav = "class";
+  await saveItem("classes", id, {
+    id,
+    label: form.label.value.trim() || "CLASS",
+    tone: form.tone.value,
+    status: form.status.value.trim() || "온라인 · 진행중",
+    title: form.title.value.trim(),
+    summary: form.summary.value.trim(),
+  });
+}
+
+async function saveAdminApply(event) {
+  event.preventDefault();
+  const form = event.target;
+  const id = editApplyId;
+  editApplyId = null;
+  adminTab = "apply";
+  adminNav = "apply";
+  await saveItem("applications", id, { ...Object.fromEntries(new FormData(form)), id });
+}
+
+async function quickUpdateApplyStatus(id, status) {
+  const item = applyCache.find((entry) => entry.id === id);
+  if (!item) return;
+  await saveItem("applications", id, { ...item.values, type: item.type, note: item.note || "", status });
+}
+
+async function saveAdminField(event) {
+  event.preventDefault();
+  const form = event.target;
+  const id = editFieldId;
+  editFieldId = null;
+  adminTab = "fields";
+  adminNav = "fields";
+  const existing = applyFieldCache.find((field) => field.id === id);
+  await saveItem("apply-fields", id, {
+    id,
+    label: form.label.value.trim(),
+    type: form.type.value,
+    required: form.required.checked,
+    options: form.options.value
+      .split(",")
+      .map((opt) => opt.trim())
+      .filter(Boolean),
+    order: existing ? existing.order : applyFieldCache.length,
+  });
+}
+
+async function moveApplyField(id, dir) {
+  const sorted = [...applyFieldCache].sort((a, b) => a.order - b.order);
+  const idx = sorted.findIndex((field) => field.id === id);
+  const swapIdx = idx + dir;
+  if (idx < 0 || swapIdx < 0 || swapIdx >= sorted.length) return;
+  const current = sorted[idx];
+  const target = sorted[swapIdx];
+  try {
+    await api(`/api/admin/apply-fields/${encodeURIComponent(current.id)}`, {
+      method: "PUT",
+      body: JSON.stringify({ ...current, order: target.order }),
+    });
+    await api(`/api/admin/apply-fields/${encodeURIComponent(target.id)}`, {
+      method: "PUT",
+      body: JSON.stringify({ ...target, order: current.order }),
+    });
+    await refreshAccountViews();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function uploadTestFile(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const headers = {};
+  if (token()) headers.Authorization = `Bearer ${token()}`;
+  let res;
+  try {
+    res = await fetch(API + "/api/admin/tests/upload", { method: "POST", headers, body: formData });
+  } catch {
+    throw new Error("서버에 연결할 수 없습니다.");
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "파일 업로드에 실패했습니다.");
+  return data;
+}
+
+async function saveAdminTest(event) {
+  event.preventDefault();
+  const form = event.target;
+  const id = editTestId;
+  editTestId = null;
+  adminTab = "test";
+  adminNav = "test";
+  let fileUrl = form.dataset.fileUrl || "";
+  let fileName = form.dataset.fileName || "";
+  if (form.removeFile?.checked) {
+    fileUrl = "";
+    fileName = "";
+  }
+  const fileInput = form.querySelector('input[name="file"]');
+  if (fileInput?.files?.[0]) {
+    try {
+      const uploaded = await uploadTestFile(fileInput.files[0]);
+      fileUrl = uploaded.fileUrl;
+      fileName = uploaded.fileName;
+    } catch (error) {
+      window.alert(error.message);
+      return;
+    }
+  }
+  await saveItem("tests", id, {
+    id,
+    title: form.title.value.trim(),
+    summary: form.summary.value.trim(),
+    password: form.password.value.trim(),
+    body: form.body.value.trim(),
+    linkUrl: form.linkUrl.value.trim(),
+    fileUrl,
+    fileName,
+  });
+}
+
+async function saveAdminNotice(event) {
+  event.preventDefault();
+  const form = event.target;
+  const id = editNoticeId;
+  editNoticeId = null;
+  adminTab = "notice";
+  adminNav = "notice";
+  await saveItem("notices", id, {
+    id,
+    tag: form.tag.value.trim() || "공지",
+    title: form.title.value.trim(),
+    body: form.body.value.trim(),
+  });
+}
+
+async function saveAdminPost(event) {
+  event.preventDefault();
+  const form = event.target;
+  const id = editPostId;
+  editPostId = null;
+  adminTab = "community";
+  adminNav = "community";
+  await saveItem("posts", id, {
+    id,
+    tag: form.tag.value.trim() || "후기",
+    title: form.title.value.trim(),
+    body: form.body.value.trim(),
+  });
+}
+
+async function deleteAdminItem(kind, id, list) {
+  const item = list.find((entry) => entry.id === id);
+  if (!item) return;
+  const label = item.title || item.name || item.label || (kind === "applications" ? applyDisplayName(item) : item.id);
+  if (!window.confirm(`"${label}"을(를) 삭제할까요?`)) return;
+  try {
+    await api(`/api/admin/${kind}/${encodeURIComponent(id)}`, { method: "DELETE" });
+    if (kind === "classes" && editClassId === id) editClassId = null;
+    if (kind === "tests" && editTestId === id) editTestId = null;
+    if (kind === "applications" && editApplyId === id) editApplyId = null;
+    if (kind === "notices" && editNoticeId === id) editNoticeId = null;
+    if (kind === "posts" && editPostId === id) editPostId = null;
+    if (kind === "apply-fields" && editFieldId === id) editFieldId = null;
+    await refreshAccountViews();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function setUserRole(email, role) {
+  try {
+    const result = await api(`/api/admin/users/${encodeURIComponent(email)}/role`, {
+      method: "PATCH",
+      body: JSON.stringify({ role }),
+    });
+    const me = getSession();
+    if (me?.email === email) localStorage.setItem("oncodelab-session", JSON.stringify({ ...me, role: result.user.role }));
+    await refreshAccountViews();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+function initTests() {
+  const box = document.getElementById("test-list");
+  if (!box) return;
+  if (!testCache.length) {
+    box.innerHTML = `<p class="sub">현재 열려 있는 TEST가 없습니다. API 서버가 실행 중인지 확인해 주세요.</p>`;
+    return;
+  }
+  const opened = unlockedIds();
+  const bodies = unlockedBodies();
+  const admin = isAdmin();
+  box.innerHTML = testCache
+    .map((item) => {
+      const open = admin || opened.includes(item.id);
+      const content = admin ? item : bodies[item.id] || {};
+      const hasContent = content.body || content.linkUrl || content.fileUrl;
+      return `<article class="test-card ${open ? "is-open" : "is-locked"}">
+        <div class="test-head"><span class="lock-badge">${open ? "열림" : "잠금"}</span><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.summary)}</p></div>
+        ${
+          open
+            ? `<div class="test-body">
+                ${content.body ? `<p>${escapeHtml(content.body)}</p>` : ""}
+                ${content.linkUrl ? `<p><a class="btn btn-orange" href="${escapeHtml(content.linkUrl)}" target="_blank" rel="noopener">TEST 시작하기</a></p>` : ""}
+                ${content.fileUrl ? `<p><a class="btn btn-line" href="${escapeHtml(API + content.fileUrl)}" target="_blank" rel="noopener">${escapeHtml(content.fileName || "첨부 파일")} 다운로드</a></p>` : ""}
+                ${hasContent ? "" : `<p class="sub">등록된 내용이 없습니다.</p>`}
+              </div>${admin ? `<p class="test-note">관리자 계정으로 열려 있습니다.</p>` : `<button class="btn btn-line lock-again" type="button" data-lock="${escapeHtml(item.id)}">다시 잠그기</button>`}`
+            : `<form class="unlock-form" data-unlock="${escapeHtml(item.id)}"><input type="password" name="code" placeholder="수업에서 받은 비밀번호" autocomplete="off" /><button class="btn btn-green" type="submit">잠금 해제</button><p class="unlock-error" hidden>비밀번호가 올바르지 않습니다.</p></form>`
+        }
+      </article>`;
+    })
+    .join("");
+
+  box.querySelectorAll(".unlock-form").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        const result = await api(`/api/tests/${encodeURIComponent(form.dataset.unlock)}/unlock`, {
+          method: "POST",
+          body: JSON.stringify({ password: form.code.value.trim() }),
+        });
+        const ids = unlockedIds();
+        if (!ids.includes(form.dataset.unlock)) ids.push(form.dataset.unlock);
+        sessionStorage.setItem("oncodelab-unlocked-tests", JSON.stringify(ids));
+        sessionStorage.setItem("oncodelab-unlocked-bodies", JSON.stringify({ ...bodies, [form.dataset.unlock]: result }));
+        initTests();
+      } catch {
+        form.querySelector(".unlock-error").hidden = false;
+      }
+    });
+  });
+  box.querySelectorAll("[data-lock]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      sessionStorage.setItem("oncodelab-unlocked-tests", JSON.stringify(unlockedIds().filter((id) => id !== btn.dataset.lock)));
+      initTests();
+    });
+  });
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  renderCourses();
+  setupAuth();
+  setupOpenChatQr();
+  await loadSiteData();
+  renderClassPage();
+  fillInquiryOptions();
+  renderApplyFields();
+  initMypage();
+  initAdmin();
+  initTests();
+  initNotices();
+  initPosts();
+});

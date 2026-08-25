@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Oncodelab | “즐거운 경험을 통해 생각하는 힘을 키우는 교육을 만들어갑니다”</title>
+  <link rel="icon" href="favicon.svg" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="topbar">
+    <div class="wrap">
+      <span>“즐거운 경험을 통해 생각하는 힘을 키우는 교육을 만들어갑니다.”</span>
+      <span>상담 평일 09:00–18:00</span>
+    </div>
+  </div>
+
+  <header class="header">
+    <div class="wrap header-main">
+      <a class="brand" href="index.html">
+        <img src="images/logo-wordmark.png" alt="oncodelab" />
+      </a>
+      <nav id="nav" class="nav">
+        <div class="nav-item">
+          <span onclick="toggleItem(event, this)">온코드랩</span>
+          <div class="dropdown">
+            <a href="greeting.html">온코드랩의 철학</a>
+            <a href="about.html">소개</a>
+            <a href="history.html">연혁</a>
+          </div>
+        </div>
+        <div class="nav-item"><a href="class.html">Class</a></div>
+        <div class="nav-item"><a href="diagnosis.html">TEST</a></div>
+        <div class="nav-item"><a href="instructor.html">강사 신청</a></div>
+        <div class="nav-item"><a href="notice.html">공지사항</a></div>
+        <div class="nav-item"><a href="community.html">커뮤니티</a></div>
+      </nav>
+      <div class="header-actions">
+        <a class="btn btn-line" href="#" data-auth="login">로그인</a>
+        <a class="btn btn-orange" href="contact.html">수업 신청</a>
+        <button class="menu-btn" type="button" onclick="toggleMenu()">메뉴</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="hero-copy">
+      <h1>배움이 스스로의 힘이 되는 교육을 만들어갑니다.</h1>
+      <p>AI와 코딩을 쉽게 이해하는 것에서 시작해,<br>
+      직접 생각하고 만들고 해결하는 경험을 통해<br>
+      <strong>스스로 배우고 성장할 수 있는 힘을 키우는 교육을 이어갑니다.</strong></p>
+      <div class="hero-cta">
+        <a class="btn btn-orange" href="class.html">Class 신청</a>
+        <a class="btn btn-green" href="about.html">온코드랩 소개</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section philosophy">
+    <div class="wrap center">
+      <p class="kicker">ONCODELAB CLASS</p>
+      <h2>즐거운 경험이 생각하는 힘이 되는 교육</h2>
+      <p class="sub">배우고, 만들고, 직접 경험하는 과정 속에서<br>스스로 생각하고 해결하는 힘을 키워갑니다.</p>
+      <div class="pillars">
+        <article class="pillar">
+          <b>THINK</b>
+          <h3>스스로 생각합니다.</h3>
+          <p>정답을 따라가기보다 질문하고 고민하며<br>자신만의 생각을 만들어갑니다.</p>
+        </article>
+        <article class="pillar">
+          <b>EXPERIENCE</b>
+          <h3>다양하게 경험합니다.</h3>
+          <p>AI, 코딩, 로봇과 다양한 프로젝트를 직접 경험하며<br>배움의 즐거움과 새로운 가능성을 발견합니다.</p>
+        </article>
+        <article class="pillar">
+          <b>SOLVE</b>
+          <h3>스스로 해결합니다.</h3>
+          <p>만들고 실패하고 다시 시도하는 과정에서<br>문제를 바라보고 해결하는 힘을 키워갑니다.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap wide center">
+      <p class="kicker">EDUCATION TRACK</p>
+      <h2>Oncodelab 교육 과정</h2>
+      <p class="sub">다양한 배움이 경험이 되고, 경험이 성장으로 이어지도록 다섯 가지 교육 영역을 운영합니다.</p>
+      <div class="course-grid">
+        <article class="course-box">
+          <span class="course-num">01</span>
+          <h3>컴퓨팅 사고력 교육</h3>
+          <p>놀이와 활동을 통한<br>사고력·문제해결력</p>
+          <ul class="course-ex">
+            <li>언플러그드</li>
+            <li>알고리즘</li>
+            <li>논리·문제해결 활동</li>
+          </ul>
+        </article>
+        <article class="course-box">
+          <span class="course-num">02</span>
+          <h3>프로그래밍 교육</h3>
+          <p>생각을 코드로 구현하는 경험</p>
+          <ul class="course-ex">
+            <li>Scratch</li>
+            <li>Entry</li>
+            <li>Python</li>
+            <li>앱인벤터</li>
+          </ul>
+        </article>
+        <article class="course-box">
+          <span class="course-num">03</span>
+          <h3>피지컬 컴퓨팅 교육</h3>
+          <p>코딩과 현실 세계의 연결</p>
+          <ul class="course-ex">
+            <li>로봇코딩</li>
+            <li>아두이노</li>
+            <li>마이크로비트</li>
+            <li>센서</li>
+            <li>자율주행</li>
+          </ul>
+        </article>
+        <article class="course-box">
+          <span class="course-num">04</span>
+          <h3>AI · 디지털 창작 교육</h3>
+          <p>AI를 이해하고 활용해<br>새로운 결과물 제작</p>
+          <ul class="course-ex">
+            <li>생성형 AI</li>
+            <li>AI 리터러시</li>
+            <li>바이브코딩</li>
+            <li>웹·콘텐츠 제작</li>
+          </ul>
+        </article>
+        <article class="course-box">
+          <span class="course-num">05</span>
+          <h3>성인 · 교원 교육</h3>
+          <p>실생활·업무·교육 현장 중심의<br>디지털 역량</p>
+          <ul class="course-ex">
+            <li>생성형 AI 실무</li>
+            <li>교원 연수</li>
+            <li>취업·업무 활용</li>
+          </ul>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section philosophy">
+    <div class="wrap">
+      <div class="labs">
+        <a class="lab student" href="class.html">
+          <h3>Class</h3>
+          <p>온라인으로 진행되는 교육을 확인하고, 바로 신청할 수 있는 공간입니다.</p>
+          <span>온라인 교육 신청하기 →</span>
+        </a>
+        <a class="lab teacher" href="diagnosis.html">
+          <h3>TEST</h3>
+          <p>실제 수업에서 활용하는 공간입니다. 수업 중 승인받은 학습자만 비밀번호로 입장할 수 있습니다.</p>
+          <span>TEST 목록 보기 →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap">
+      <p class="kicker">CLASS APPLY</p>
+      <h2>수업 신청</h2>
+      <p class="sub">진행 중인 온라인 Class를 확인하고, 원하는 교육을 바로 신청할 수 있습니다.</p>
+      <p style="margin-top:24px"><a class="btn btn-green" href="contact.html">수업 신청하기</a></p>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="wrap footer-grid">
+      <div>
+        <b>Oncodelab</b>
+        <p>교실 밖으로 펼쳐지는 코딩 연구<br>스스로 생각하고 만드는 AI · 코딩 교육 랩</p>
+      </div>
+      <div>
+        <p>문의 hello@oncodelab.kr</p>
+        <p>상담 평일 09:00–18:00</p>
+        <p>사업자명 온코드랩</p>
+      </div>
+      <div>
+        <a href="about.html">소개</a>
+        <a href="instructor.html">강사 신청</a>
+        <a href="notice.html">공지사항</a>
+        <a href="community.html">커뮤니티</a>
+      </div>
+    </div>
+    <div class="copy">© 2026 Oncodelab. All rights reserved.</div>
+  </footer>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>강사 신청 | Oncodelab</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="topbar"><div class="wrap"><span>“즐거운 경험을 통해 생각하는 힘을 키우는 교육을 만들어갑니다.”</span><span>상담 평일 09:00–18:00</span></div></div>
+  <header class="header">
+    <div class="wrap header-main">
+      <a class="brand" href="index.html"><img src="images/logo-wordmark.png" alt="oncodelab" /></a>
+      <nav id="nav" class="nav">
+        <div class="nav-item"><span onclick="toggleItem(event, this)">온코드랩</span><div class="dropdown"><a href="greeting.html">온코드랩의 철학</a><a href="about.html">소개</a><a href="history.html">연혁</a></div></div>
+        <div class="nav-item"><a href="class.html">Class</a></div>
+        <div class="nav-item"><a href="diagnosis.html">TEST</a></div>
+        <div class="nav-item"><a class="active" href="instructor.html">강사 신청</a></div>
+        <div class="nav-item"><a href="notice.html">공지사항</a></div>
+        <div class="nav-item"><a href="community.html">커뮤니티</a></div>
+      </nav>
+      <div class="header-actions"><a class="btn btn-orange" href="contact.html">수업 신청</a><button class="menu-btn" type="button" onclick="toggleMenu()">메뉴</button></div>
+    </div>
+  </header>
+  <section class="page-hero">
+    <div class="wrap">
+      <p class="kicker">INSTRUCTOR</p>
+      <h1>강사 신청</h1>
+      <p class="sub">온코드랩과 함께 생각하는 힘과 문제해결력을 키우는 교육을 만들어갈 강사를 모집합니다.</p>
+    </div>
+  </section>
+  <article class="article">
+    <form class="form" onsubmit="submitInquiry(event)">
+      <input type="hidden" name="kind" value="instructor" />
+      <input required name="name" placeholder="이름" />
+      <input required type="email" name="email" placeholder="이메일" />
+      <input required name="phone" placeholder="연락처" />
+      <select name="field">
+        <option>AI · 생성형 AI 교육</option>
+        <option>코딩 · 소프트웨어 교육</option>
+        <option>로봇 · 피지컬 AI 교육</option>
+        <option>바이브코딩 · AI 프로젝트</option>
+        <option>진로 · 취업 AI 활용</option>
+        <option>교사 · 성인 디지털 역량</option>
+      </select>
+      <textarea required name="message" rows="5" placeholder="경력 및 지원 동기"></textarea>
+      <button class="btn btn-orange" type="submit">강사 신청하기</button>
+    </form>
+    <p id="success" class="success">강사 신청이 접수되었습니다. 확인 후 연락드리겠습니다.</p>
+  </article>
+  <script src="js/main.js"></script>
+</body>
+</html>
