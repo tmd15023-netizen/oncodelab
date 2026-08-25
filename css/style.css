@@ -9,7 +9,7 @@
   --yellow: #ffd15a;
   --orange: #ff7a45;
   --blue: #2f8bff;
-  --green: #72b2a5;
+  --green: #3d7cc9;
   --shadow: 0 12px 32px rgba(22, 50, 79, 0.08);
 }
 
@@ -30,7 +30,7 @@ img { max-width: 100%; display: block; }
 .wrap.wide { width: min(1280px, calc(100% - 32px)); }
 
 .topbar {
-  background: #72b2a5;
+  background: var(--green);
   color: #fff;
   font-size: 16px;
   font-weight: 700;
@@ -372,7 +372,7 @@ h3 { font-size: 22px; }
 }
 .success {
   display: none;
-  background: #e8f8f5;
+  background: #e8f1fb;
   color: var(--navy);
   border-radius: 16px;
   padding: 20px;
@@ -592,7 +592,7 @@ h3 { font-size: 22px; }
   font-size: 13px;
   font-weight: 800;
 }
-.role-badge.admin { background: #e8f6f3; color: #1a7a6d; }
+.role-badge.admin { background: #e8f1fb; color: #1a5fa8; }
 .user-table { display: grid; gap: 12px; margin-top: 18px; }
 .user-row {
   display: grid;
@@ -947,8 +947,8 @@ h3 { font-size: 22px; }
   color: #b42318;
 }
 .test-card.is-open .lock-badge {
-  background: #e8f6f3;
-  color: #1a7a6d;
+  background: #e8f1fb;
+  color: #1a5fa8;
 }
 .unlock-form {
   display: grid;
