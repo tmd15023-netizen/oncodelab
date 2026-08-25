@@ -51,17 +51,21 @@ img { max-width: 100%; display: block; }
 .topbar-contact { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .topbar-line { display: inline-flex; align-items: center; gap: 10px; }
 .topbar-note { font-size: 12px; font-weight: 500; opacity: .85; }
-.openchat-qr { display: flex; align-items: center; gap: 6px; }
-.openchat-qr img {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
+.topbar-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: #fff;
-  padding: 2px;
-  cursor: pointer;
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 5px 14px;
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
   transition: transform .15s ease;
 }
-.openchat-qr img:hover { transform: scale(1.15); }
+.topbar-cta:hover { transform: translateY(-1px); }
 
 .header {
   position: sticky;

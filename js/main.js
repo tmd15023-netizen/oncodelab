@@ -102,58 +102,15 @@ function unlockedBodies() {
   return readJson(sessionStorage, "oncodelab-unlocked-bodies", {});
 }
 
-const OPENCHAT_QR = [
-  { src: "images/openchat-1.png", label: "오픈채팅 QR코드 1" },
-  { src: "images/openchat-2.png", label: "오픈채팅 QR코드 2" },
-];
+const COUNSEL_CHAT_URL = "https://open.kakao.com/o/seEpayjh";
 
-function openQrLightbox(index) {
-  const modal = document.getElementById("qr-modal");
-  const img = document.getElementById("qr-modal-img");
-  if (!modal || !img) return;
-  img.src = OPENCHAT_QR[index].src;
-  img.alt = OPENCHAT_QR[index].label;
-  modal.classList.add("open");
-  modal.setAttribute("aria-hidden", "false");
-}
-
-function closeQrLightbox() {
-  const modal = document.getElementById("qr-modal");
-  if (!modal) return;
-  modal.classList.remove("open");
-  modal.setAttribute("aria-hidden", "true");
-}
-
-function setupOpenChatQr() {
+function setupCounselButton() {
   const contactSpan = document.querySelector(".topbar .wrap span:last-child");
-  if (!contactSpan || contactSpan.dataset.qrReady) return;
-  contactSpan.dataset.qrReady = "true";
+  if (!contactSpan || contactSpan.dataset.counselReady) return;
+  contactSpan.dataset.counselReady = "true";
   contactSpan.classList.add("topbar-contact");
   const original = contactSpan.textContent.trim();
-  const qrImgs = OPENCHAT_QR.map(
-    (qr, idx) => `<img src="${qr.src}" alt="${escapeHtml(qr.label)}" data-qr-index="${idx}" />`,
-  ).join("");
-  contactSpan.innerHTML = `<span class="topbar-line">${escapeHtml(original)}<span class="openchat-qr">${qrImgs}</span></span><small class="topbar-note">수업 진행 중에는 답변이 다소 늦어질 수 있는 점 양해 부탁드립니다.</small>`;
-  contactSpan.querySelectorAll(".openchat-qr img").forEach((img) => {
-    img.addEventListener("click", () => openQrLightbox(Number(img.dataset.qrIndex)));
-  });
-
-  if (!document.getElementById("qr-modal")) {
-    document.body.insertAdjacentHTML(
-      "beforeend",
-      `<div class="auth-modal" id="qr-modal" aria-hidden="true">
-        <div class="auth-dim" data-qr-close></div>
-        <div class="auth-box" role="dialog" aria-modal="true" style="text-align:center">
-          <button class="auth-close" type="button" data-qr-close aria-label="닫기">×</button>
-          <img id="qr-modal-img" src="" alt="" style="width:100%;max-width:280px;border-radius:16px" />
-        </div>
-      </div>`,
-    );
-    document.querySelectorAll("[data-qr-close]").forEach((el) => el.addEventListener("click", closeQrLightbox));
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") closeQrLightbox();
-    });
-  }
+  contactSpan.innerHTML = `<span class="topbar-line">${escapeHtml(original)}<a class="topbar-cta" href="${escapeHtml(COUNSEL_CHAT_URL)}" target="_blank" rel="noopener">상담신청</a></span><small class="topbar-note">수업 진행 중에는 답변이 다소 늦어질 수 있는 점 양해 부탁드립니다.</small>`;
 }
 
 function toggleMenu() {
@@ -1322,10 +1279,43 @@ function initTests() {
   });
 }
 
+function isTypingInside(container) {
+  const active = document.activeElement;
+  return active && container.contains(active) && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT");
+}
+
+function setupLivePolling() {
+  const watchers = [
+    { containerId: "class-list", path: "/api/classes", setCache: (v) => (classCache = v), render: () => { renderClassPage(); fillInquiryOptions(); } },
+    { containerId: "test-list", path: "/api/tests", setCache: (v) => (testCache = v), render: initTests },
+    { containerId: "notice-list", path: "/api/notices", setCache: (v) => (noticeCache = v), render: initNotices },
+    { containerId: "post-list", path: "/api/posts", setCache: (v) => (postCache = v), render: initPosts },
+  ].filter((watcher) => document.getElementById(watcher.containerId));
+  if (!watchers.length) return;
+
+  setInterval(async () => {
+    for (const watcher of watchers) {
+      const container = document.getElementById(watcher.containerId);
+      if (!container || isTypingInside(container)) continue;
+      let fresh;
+      try {
+        fresh = await api(watcher.path);
+      } catch {
+        continue;
+      }
+      const freshText = JSON.stringify(fresh);
+      if (freshText === watcher.lastText) continue;
+      watcher.lastText = freshText;
+      watcher.setCache(fresh);
+      watcher.render();
+    }
+  }, 15000);
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   renderCourses();
   setupAuth();
-  setupOpenChatQr();
+  setupCounselButton();
   await loadSiteData();
   renderClassPage();
   fillInquiryOptions();
@@ -1335,4 +1325,5 @@ document.addEventListener("DOMContentLoaded", async () => {
   initTests();
   initNotices();
   initPosts();
+  setupLivePolling();
 });
