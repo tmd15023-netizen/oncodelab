@@ -231,7 +231,7 @@ app.post("/api/applications", async (req, res) => {
   const fields = await col("applyFields").find({}).sort({ order: 1 }).toArray();
   const item = applyPayload(req.body, null, fields);
   const missingRequired = fields.some((field) => field.required && !item.values[field.id]);
-  if (!item.type || missingRequired) {
+  if (missingRequired) {
     return res.status(400).json({ error: "필수 항목을 모두 입력해 주세요." });
   }
   await col("applications").insertOne(item);
