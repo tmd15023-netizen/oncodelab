@@ -404,7 +404,7 @@ function reviewCardsHtml() {
     .map((item) => {
       const author = item.blogId === "smartjula" ? "박주라 강사 블로그" : "백승희 강사 블로그";
       const thumb = item.image
-        ? `<img src="${escapeHtml(item.image)}" alt="" style="height:160px;width:100%;object-fit:cover" />`
+        ? `<img src="${escapeHtml(item.image)}" alt="" referrerpolicy="no-referrer" style="height:160px;width:100%;object-fit:cover" />`
         : `<div class="thumb live">REVIEW</div>`;
       return `<article class="card">
         ${thumb}
