@@ -347,6 +347,10 @@ h3 { font-size: 22px; }
 .tab.active { background: var(--navy); color: #fff; border-color: var(--navy); }
 
 .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.review-grid { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 1100px) {
+  .review-grid { grid-template-columns: repeat(3, 1fr); }
+}
 .card {
   display: flex;
   flex-direction: column;
@@ -1039,7 +1043,7 @@ h3 { font-size: 22px; }
   .nav.open { display: flex; }
   .dropdown { position: static; display: none; box-shadow: none; border: 0; }
   .nav-item.open .dropdown { display: block; }
-  .pillars, .labs, .steps, .cards, .footer-grid { grid-template-columns: 1fr; }
+  .pillars, .labs, .steps, .cards, .footer-grid, .review-grid { grid-template-columns: 1fr; }
   .hero { min-height: auto; padding: 64px 16px; }
   .course-grid { grid-template-columns: 1fr; }
   .board a, .board-row { grid-template-columns: 70px 1fr; }

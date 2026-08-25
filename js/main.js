@@ -20,7 +20,7 @@ let editPostState = null;
 let blogReviewCache = [];
 let reviewSearch = "";
 let reviewPage = 1;
-const REVIEW_PAGE_SIZE = 12;
+const REVIEW_PAGE_SIZE = 20;
 
 const courses = [
   { type: "live", tag: "라이브 LAB", title: "엔트리 코딩 기초 마스터", age: "초등 3~4학년", track: "A 스타터" },
@@ -433,7 +433,7 @@ function reviewResultsHtml() {
   const start = (reviewPage - 1) * REVIEW_PAGE_SIZE;
   const pageItems = filtered.slice(start, start + REVIEW_PAGE_SIZE);
 
-  const cards = `<div class="cards">${pageItems.map(reviewCardHtml).join("")}</div>`;
+  const cards = `<div class="cards review-grid">${pageItems.map(reviewCardHtml).join("")}</div>`;
 
   const pagination =
     totalPages > 1
