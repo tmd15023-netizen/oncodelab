@@ -162,7 +162,7 @@ function renderClassPage() {
           <small>${escapeHtml(item.status || "온라인 · 진행중")}</small>
           <h3>${escapeHtml(item.title)}</h3>
           <p>${escapeHtml(item.summary || "")}</p>
-          <a class="btn btn-orange" href="contact.html">신청하기</a>
+          <a class="btn btn-orange" href="contact">신청하기</a>
         </div>
       </article>`,
     )
@@ -314,7 +314,7 @@ function refreshAuthButton() {
   if (session && actions) {
     const mypage = Object.assign(document.createElement("a"), {
       className: "btn btn-line",
-      href: "mypage.html",
+      href: "mypage",
       textContent: "마이페이지",
     });
     mypage.dataset.auth = "mypage";
@@ -322,7 +322,7 @@ function refreshAuthButton() {
     if (isAdmin()) {
       const adminBtn = Object.assign(document.createElement("a"), {
         className: "btn btn-green",
-        href: "admin.html",
+        href: "admin",
         textContent: "어드민",
       });
       adminBtn.dataset.auth = "admin";
@@ -358,21 +358,21 @@ function boardListHtml(list, page) {
   if (!list.length) return `<p class="sub" style="padding:24px 0">등록된 글이 없습니다.</p>`;
   return `<div class="board">${list
     .map(
-      (item) => `<a href="${page}.html?id=${encodeURIComponent(item.id)}"><em>${escapeHtml(item.tag || "")}</em><b>${escapeHtml(item.title)}</b><span>${formatBoardDate(item.createdAt)}</span></a>`,
+      (item) => `<a href="${page}?id=${encodeURIComponent(item.id)}"><em>${escapeHtml(item.tag || "")}</em><b>${escapeHtml(item.title)}</b><span>${formatBoardDate(item.createdAt)}</span></a>`,
     )
     .join("")}</div>`;
 }
 
 function boardDetailHtml(item, page) {
   if (!item) {
-    return `<div class="profile-card"><h2>글을 찾을 수 없습니다.</h2><p style="margin-top:18px"><a class="btn btn-line" href="${page}.html">목록으로</a></p></div>`;
+    return `<div class="profile-card"><h2>글을 찾을 수 없습니다.</h2><p style="margin-top:18px"><a class="btn btn-line" href="${page}">목록으로</a></p></div>`;
   }
   return `<div class="profile-card">
     <p class="kicker">${escapeHtml(item.tag || "")}</p>
     <h2>${escapeHtml(item.title)}</h2>
     <p class="sub">${formatBoardDate(item.createdAt)}</p>
     <div class="doc-body">${escapeHtml(item.body || "")}</div>
-    <p style="margin-top:24px"><a class="btn btn-line" href="${page}.html">목록으로</a></p>
+    <p style="margin-top:24px"><a class="btn btn-line" href="${page}">목록으로</a></p>
   </div>`;
 }
 
@@ -512,7 +512,7 @@ function initMypage() {
       <p>이메일 ${escapeHtml(me.email)}</p>
       <p>전화번호 ${escapeHtml(me.phone || "-")}</p>
       <p>권한 <span class="role-badge ${isAdmin(me) ? "admin" : ""}">${isAdmin(me) ? "관리자" : "일반 회원"}</span></p>
-      ${isAdmin(me) ? `<p style="margin-top:18px"><a class="btn btn-green" href="admin.html">어드민 페이지로 이동</a></p>` : ""}
+      ${isAdmin(me) ? `<p style="margin-top:18px"><a class="btn btn-green" href="admin">어드민 페이지로 이동</a></p>` : ""}
     </div>`;
 }
 
@@ -552,7 +552,7 @@ function initAdmin() {
   }
   if (!isAdmin()) {
     box.className = "admin-gate";
-    box.innerHTML = noticeCard("접근 권한이 없습니다", "일반 회원은 어드민 페이지를 볼 수 없습니다.", `<p><a class="btn btn-line" href="index.html">홈으로 이동</a></p>`);
+    box.innerHTML = noticeCard("접근 권한이 없습니다", "일반 회원은 어드민 페이지를 볼 수 없습니다.", `<p><a class="btn btn-line" href="index">홈으로 이동</a></p>`);
     return;
   }
 
@@ -596,7 +596,7 @@ function initAdmin() {
         </ul>
       </div>
       <div class="dash-side-links">
-        <a href="index.html">사이트로 이동</a>
+        <a href="index">사이트로 이동</a>
         <button type="button" data-admin-logout>로그아웃</button>
       </div>
     </aside>
