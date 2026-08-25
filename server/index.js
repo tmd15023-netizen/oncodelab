@@ -7,6 +7,7 @@ import cors from "cors";
 import express from "express";
 import multer from "multer";
 import bcrypt from "bcryptjs";
+import { XMLParser } from "fast-xml-parser";
 import { connectDb, getDb, publicApplication, publicClass, publicTest, publicUser, publicNotice, publicPost, publicApplyField } from "./db.js";
 
 const isServerless = Boolean(process.env.VERCEL);
@@ -123,13 +124,14 @@ function noticePayload(body, id) {
   };
 }
 
-function postPayload(body, id) {
+function postPayload(body, id, existing) {
   return {
     id: id || String(body.id || makeId("post")),
-    tag: String(body.tag || "후기").trim(),
+    tag: String(body.tag || existing?.tag || "정보").trim(),
+    name: String(body.name || existing?.name || "").trim(),
     title: String(body.title || "").trim(),
     body: String(body.body || "").trim(),
-    createdAt: body.createdAt || new Date(),
+    createdAt: body.createdAt || existing?.createdAt || new Date(),
   };
 }
 
@@ -162,7 +164,61 @@ function applyPayload(body, id, fields) {
   };
 }
 
+const BLOG_IDS = ["smartjula", "qortmd1502"];
+const blogReviewCache = { data: null, at: 0 };
+const BLOG_CACHE_MS = 10 * 60 * 1000;
+
+function stripHtml(html) {
+  return String(html || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function firstImage(html) {
+  const match = String(html || "").match(/<img[^>]+src="([^"]+)"/);
+  return match ? match[1] : "";
+}
+
+async function fetchBlogReviews() {
+  if (blogReviewCache.data && Date.now() - blogReviewCache.at < BLOG_CACHE_MS) {
+    return blogReviewCache.data;
+  }
+  const parser = new XMLParser();
+  const all = [];
+  for (const blogId of BLOG_IDS) {
+    try {
+      const res = await fetch(`https://rss.blog.naver.com/${blogId}.xml`, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+      });
+      const xml = await res.text();
+      const items = parser.parse(xml)?.rss?.channel?.item;
+      const list = Array.isArray(items) ? items : items ? [items] : [];
+      for (const item of list) {
+        all.push({
+          title: String(item.title || "").trim(),
+          link: String(item.link || "").trim(),
+          image: firstImage(item.description),
+          excerpt: stripHtml(item.description).slice(0, 90),
+          pubDate: item.pubDate || "",
+          blogId,
+        });
+      }
+    } catch (error) {
+      console.error(`블로그(${blogId}) RSS를 불러오지 못했습니다:`, error.message);
+    }
+  }
+  all.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+  blogReviewCache.data = all.slice(0, 30);
+  blogReviewCache.at = Date.now();
+  return blogReviewCache.data;
+}
+
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+app.get("/api/blog-reviews", async (_req, res) => {
+  res.json(await fetchBlogReviews());
+});
 
 app.get("/api/classes", async (_req, res) => {
   res.json((await col("classes").find({}).toArray()).map(publicClass));
@@ -196,6 +252,52 @@ app.get("/api/notices", async (_req, res) => {
 
 app.get("/api/posts", async (_req, res) => {
   res.json((await col("posts").find({}).sort({ createdAt: -1 }).toArray()).map(publicPost));
+});
+
+app.post("/api/posts", async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const title = String(req.body.title || "").trim();
+  const body = String(req.body.body || "").trim();
+  const password = String(req.body.password || "");
+  if (!name || !title || !body || password.length < 4) {
+    return res.status(400).json({ error: "이름, 제목, 내용을 입력하고 4자 이상의 비밀번호를 설정해 주세요." });
+  }
+  const item = {
+    id: makeId("post"),
+    tag: String(req.body.tag || "정보").trim(),
+    name,
+    title,
+    body,
+    passwordHash: await bcrypt.hash(password, 10),
+    createdAt: new Date(),
+  };
+  await col("posts").insertOne(item);
+  res.json(publicPost(item));
+});
+
+async function canEditPost(req, current) {
+  if (!current) return false;
+  if (isAdmin(await userFromReq(req))) return true;
+  if (!current.passwordHash) return false;
+  return bcrypt.compare(String(req.body.password || ""), current.passwordHash);
+}
+
+app.put("/api/posts/:id", async (req, res) => {
+  const current = await col("posts").findOne({ id: req.params.id });
+  if (!current) return res.status(404).json({ error: "게시글을 찾을 수 없습니다." });
+  if (!(await canEditPost(req, current))) return res.status(403).json({ error: "비밀번호가 올바르지 않습니다." });
+  const item = postPayload(req.body, req.params.id, current);
+  if (!item.title || !item.body) return res.status(400).json({ error: "제목과 내용을 입력해 주세요." });
+  await col("posts").updateOne({ id: req.params.id }, { $set: { tag: item.tag, name: item.name, title: item.title, body: item.body } });
+  res.json(publicPost({ ...current, ...item }));
+});
+
+app.delete("/api/posts/:id", async (req, res) => {
+  const current = await col("posts").findOne({ id: req.params.id });
+  if (!current) return res.status(404).json({ error: "게시글을 찾을 수 없습니다." });
+  if (!(await canEditPost(req, current))) return res.status(403).json({ error: "비밀번호가 올바르지 않습니다." });
+  await col("posts").deleteOne({ id: req.params.id });
+  res.json({ ok: true });
 });
 
 app.post("/api/auth/signup", async (req, res) => {
@@ -346,7 +448,7 @@ app.post("/api/admin/posts", requireAdmin, async (req, res) => {
 
 app.put("/api/admin/posts/:id", requireAdmin, async (req, res) => {
   const current = await col("posts").findOne({ id: req.params.id });
-  const item = postPayload({ ...req.body, createdAt: current?.createdAt }, req.params.id);
+  const item = postPayload(req.body, req.params.id, current);
   if (!item.title || !item.body) return res.status(400).json({ error: "제목과 내용을 입력해 주세요." });
   await saveDoc(res, "posts", req.params.id, item, publicPost, "게시글을 찾을 수 없습니다.");
 });

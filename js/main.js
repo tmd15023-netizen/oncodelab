@@ -15,6 +15,9 @@ let editNoticeId = null;
 let editPostId = null;
 let editFieldId = null;
 let applyFilter = { search: "", status: "all" };
+let communityTab = "info";
+let editPostState = null;
+let blogReviewCache = [];
 
 const courses = [
   { type: "live", tag: "라이브 LAB", title: "엔트리 코딩 기초 마스터", age: "초등 3~4학년", track: "A 스타터" },
@@ -344,7 +347,7 @@ async function refreshAccountViews() {
   fillInquiryOptions();
   renderApplyFields();
   initNotices();
-  initPosts();
+  initCommunity();
 }
 
 function formatBoardDate(value) {
@@ -387,8 +390,182 @@ function initNotices() {
   initBoard("notice-list", noticeCache, "notice");
 }
 
-function initPosts() {
-  initBoard("post-list", postCache, "community");
+async function loadBlogReviews() {
+  try {
+    blogReviewCache = await api("/api/blog-reviews");
+  } catch (error) {
+    console.warn(error.message);
+  }
+}
+
+function reviewCardsHtml() {
+  if (!blogReviewCache.length) return `<p class="sub" style="padding:24px 0">불러올 후기가 없습니다.</p>`;
+  return `<div class="cards">${blogReviewCache
+    .map((item) => {
+      const author = item.blogId === "smartjula" ? "박주라 강사 블로그" : "백승희 강사 블로그";
+      const thumb = item.image
+        ? `<img src="${escapeHtml(item.image)}" alt="" style="height:160px;width:100%;object-fit:cover" />`
+        : `<div class="thumb live">REVIEW</div>`;
+      return `<article class="card">
+        ${thumb}
+        <div class="card-body">
+          <small>${escapeHtml(author)}</small>
+          <h3>${escapeHtml(item.title)}</h3>
+          <p>${escapeHtml(item.excerpt)}</p>
+          <a class="btn btn-line" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">블로그에서 보기</a>
+        </div>
+      </article>`;
+    })
+    .join("")}</div>`;
+}
+
+function postWriteFormHtml() {
+  return `<div class="profile-card" style="margin-bottom:20px">
+    <h2>글쓰기</h2>
+    <p class="sub">비밀번호를 입력해 두면 나중에 직접 수정·삭제할 수 있어요.</p>
+    <form class="form" id="post-write-form" style="margin-top:16px">
+      <div class="admin-form-row">
+        <input required name="name" placeholder="이름" maxlength="20" />
+        <input required type="password" name="password" placeholder="비밀번호 (4자 이상)" minlength="4" />
+      </div>
+      <input required name="title" placeholder="제목" />
+      <textarea required name="body" rows="5" placeholder="내용을 입력해 주세요"></textarea>
+      <button class="btn btn-orange" type="submit">등록하기</button>
+    </form>
+  </div>`;
+}
+
+function postListHtml() {
+  if (!postCache.length) return `<p class="sub" style="padding:24px 0">등록된 글이 없습니다.</p>`;
+  return `<div class="board">${postCache
+    .map(
+      (item) =>
+        `<a href="community?id=${encodeURIComponent(item.id)}"><em>${escapeHtml(item.tag || "정보")}</em><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.name || "")} · ${formatBoardDate(item.createdAt)}</span></a>`,
+    )
+    .join("")}</div>`;
+}
+
+function postDetailHtml(item) {
+  if (!item) {
+    return `<div class="profile-card"><h2>글을 찾을 수 없습니다.</h2><p style="margin-top:18px"><a class="btn btn-line" href="community">목록으로</a></p></div>`;
+  }
+  return `<div class="profile-card">
+    <p class="kicker">${escapeHtml(item.tag || "정보")}</p>
+    <h2>${escapeHtml(item.title)}</h2>
+    <p class="sub">${escapeHtml(item.name || "")} · ${formatBoardDate(item.createdAt)}</p>
+    <div class="doc-body">${escapeHtml(item.body || "")}</div>
+    <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
+      <a class="btn btn-line" href="community">목록으로</a>
+      <button class="btn btn-line" type="button" data-post-edit="${escapeHtml(item.id)}">수정</button>
+      <button class="btn btn-orange" type="button" data-post-delete="${escapeHtml(item.id)}">삭제</button>
+    </div>
+  </div>`;
+}
+
+function postEditFormHtml(item) {
+  return `<div class="profile-card">
+    <h2>글 수정</h2>
+    <form class="form" id="post-edit-form" style="margin-top:16px">
+      <div class="admin-form-row">
+        <input required name="name" placeholder="이름" maxlength="20" value="${escapeHtml(item.name || "")}" />
+        ${isAdmin() ? "" : `<input required type="password" name="password" placeholder="비밀번호" />`}
+      </div>
+      <input required name="title" placeholder="제목" value="${escapeHtml(item.title)}" />
+      <textarea required name="body" rows="5" placeholder="내용">${escapeHtml(item.body || "")}</textarea>
+      <div class="admin-form-actions">
+        <button class="btn btn-green" type="submit">저장</button>
+        <button class="btn btn-line" type="button" data-post-cancel-edit>취소</button>
+      </div>
+    </form>
+  </div>`;
+}
+
+async function submitNewPost(event) {
+  event.preventDefault();
+  const form = event.target;
+  const data = Object.fromEntries(new FormData(form));
+  try {
+    const created = await api("/api/posts", { method: "POST", body: JSON.stringify(data) });
+    postCache = [created, ...postCache];
+    initCommunity();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function savePostEdit(event, id) {
+  event.preventDefault();
+  const form = event.target;
+  const data = Object.fromEntries(new FormData(form));
+  try {
+    const updated = await api(`/api/posts/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(data) });
+    postCache = postCache.map((item) => (item.id === updated.id ? updated : item));
+    editPostState = null;
+    initCommunity();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function deletePostFlow(id) {
+  if (!window.confirm("정말 삭제할까요?")) return;
+  let password = "";
+  if (!isAdmin()) {
+    password = window.prompt("비밀번호를 입력해 주세요.") || "";
+    if (!password) return;
+  }
+  try {
+    await api(`/api/posts/${encodeURIComponent(id)}`, { method: "DELETE", body: JSON.stringify({ password }) });
+    postCache = postCache.filter((item) => item.id !== id);
+    history.replaceState(null, "", "community");
+    initCommunity();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+function initCommunity() {
+  const box = document.getElementById("community");
+  if (!box) return;
+  const tabsHtml = `<div class="tabs">
+    <button type="button" class="tab ${communityTab === "info" ? "active" : ""}" data-community-tab="info">교육정보</button>
+    <button type="button" class="tab ${communityTab === "review" ? "active" : ""}" data-community-tab="review">교육후기</button>
+  </div>`;
+
+  if (communityTab === "review") {
+    box.innerHTML = tabsHtml + reviewCardsHtml();
+  } else {
+    const id = new URLSearchParams(location.search).get("id");
+    if (id) {
+      const item = postCache.find((entry) => entry.id === id);
+      box.innerHTML = tabsHtml + (editPostState === id && item ? postEditFormHtml(item) : postDetailHtml(item));
+      if (editPostState === id && item) {
+        box.querySelector("#post-edit-form")?.addEventListener("submit", (event) => savePostEdit(event, id));
+        box.querySelector("[data-post-cancel-edit]")?.addEventListener("click", () => {
+          editPostState = null;
+          initCommunity();
+        });
+      } else {
+        box.querySelector("[data-post-edit]")?.addEventListener("click", () => {
+          editPostState = id;
+          initCommunity();
+        });
+        box.querySelector("[data-post-delete]")?.addEventListener("click", () => deletePostFlow(id));
+      }
+    } else {
+      editPostState = null;
+      box.innerHTML = tabsHtml + postWriteFormHtml() + postListHtml();
+      box.querySelector("#post-write-form")?.addEventListener("submit", submitNewPost);
+    }
+  }
+
+  box.querySelectorAll("[data-community-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      communityTab = btn.dataset.communityTab;
+      history.replaceState(null, "", "community");
+      initCommunity();
+    });
+  });
 }
 
 function setupAuth() {
@@ -1288,7 +1465,7 @@ function setupLivePolling() {
     { containerId: "class-list", path: "/api/classes", setCache: (v) => (classCache = v), render: () => { renderClassPage(); fillInquiryOptions(); } },
     { containerId: "test-list", path: "/api/tests", setCache: (v) => (testCache = v), render: initTests },
     { containerId: "notice-list", path: "/api/notices", setCache: (v) => (noticeCache = v), render: initNotices },
-    { containerId: "post-list", path: "/api/posts", setCache: (v) => (postCache = v), render: initPosts },
+    { containerId: "community", path: "/api/posts", setCache: (v) => (postCache = v), render: initCommunity },
   ].filter((watcher) => document.getElementById(watcher.containerId));
   if (!watchers.length) return;
 
@@ -1323,6 +1500,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initAdmin();
   initTests();
   initNotices();
-  initPosts();
+  loadBlogReviews().then(initCommunity);
+  initCommunity();
   setupLivePolling();
 });

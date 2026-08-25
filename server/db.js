@@ -89,8 +89,8 @@ export function publicNotice({ id, tag, title, body, createdAt }) {
   return { id, tag, title, body, createdAt };
 }
 
-export function publicPost({ id, tag, title, body, createdAt }) {
-  return { id, tag, title, body, createdAt };
+export function publicPost({ id, tag, name, title, body, createdAt }) {
+  return { id, tag, name: name || "", title, body, createdAt };
 }
 
 export function publicApplyField({ id, label, type, required, options, order }) {

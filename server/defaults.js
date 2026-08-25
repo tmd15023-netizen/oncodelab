@@ -87,6 +87,7 @@ export const DEFAULT_POSTS = [
   {
     id: "post-1",
     tag: "후기",
+    name: "온코드랩",
     title: "바이브코딩으로 첫 웹사이트를 만들어본 이야기",
     body: "생성형 AI와 함께 코드를 작성하면서 처음으로 웹사이트를 완성했습니다. 막막했던 시작이 결과물로 이어지는 과정이 재미있었어요.",
     createdAt: new Date("2026-08-12"),
@@ -94,6 +95,7 @@ export const DEFAULT_POSTS = [
   {
     id: "post-2",
     tag: "질문",
+    name: "온코드랩",
     title: "초등 저학년 엔트리 수업, 어떻게 시작하나요?",
     body: "초등 저학년 학생들에게 엔트리를 처음 소개할 때 어떤 활동으로 시작하면 좋을지 선생님들의 노하우가 궁금합니다.",
     createdAt: new Date("2026-08-04"),
@@ -101,6 +103,7 @@ export const DEFAULT_POSTS = [
   {
     id: "post-3",
     tag: "공유",
+    name: "온코드랩",
     title: "생성형 AI 프롬프트 수업 활동 아이디어",
     body: "학생들과 함께 해본 프롬프트 작성 활동을 공유합니다. 이야기 만들기, 그림 설명하기 등으로 시작하면 반응이 좋았습니다.",
     createdAt: new Date("2026-07-22"),
@@ -108,6 +111,7 @@ export const DEFAULT_POSTS = [
   {
     id: "post-4",
     tag: "후기",
+    name: "온코드랩",
     title: "로봇 코딩 수업에서 실패가 배움이 된 순간",
     body: "여러 번 실패한 미션을 스스로 고쳐 성공했을 때 아이들의 표정이 잊히지 않습니다. 실패를 다루는 방식이 수업의 핵심이라고 느꼈습니다.",
     createdAt: new Date("2026-07-09"),
