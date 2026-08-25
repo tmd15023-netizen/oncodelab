@@ -416,18 +416,16 @@ function reviewCardHtml(item) {
   </article>`;
 }
 
-function reviewCardsHtml() {
-  const searchBar = `<input type="text" id="review-search" placeholder="블로그 글 제목 검색" value="${escapeHtml(reviewSearch)}" style="width:100%;margin-bottom:20px" />`;
-
+function reviewResultsHtml() {
   if (!blogReviewCache.length) {
-    return searchBar + `<p class="sub" style="padding:24px 0">불러올 후기가 없습니다.</p>`;
+    return `<p class="sub" style="padding:24px 0">불러올 후기가 없습니다.</p>`;
   }
 
   const query = reviewSearch.trim().toLowerCase();
   const filtered = query ? blogReviewCache.filter((item) => item.title.toLowerCase().includes(query)) : blogReviewCache;
 
   if (!filtered.length) {
-    return searchBar + `<p class="sub" style="padding:24px 0">검색 결과가 없습니다.</p>`;
+    return `<p class="sub" style="padding:24px 0">검색 결과가 없습니다.</p>`;
   }
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / REVIEW_PAGE_SIZE));
@@ -446,7 +444,25 @@ function reviewCardsHtml() {
         </div>`
       : "";
 
-  return searchBar + cards + pagination;
+  return cards + pagination;
+}
+
+function reviewCardsHtml() {
+  const searchBar = `<input type="text" id="review-search" placeholder="블로그 글 제목 검색" value="${escapeHtml(reviewSearch)}" style="width:100%;margin-bottom:20px" />`;
+  return `${searchBar}<div id="review-results"></div>`;
+}
+
+function renderReviewResults() {
+  const results = document.getElementById("review-results");
+  if (!results) return;
+  results.innerHTML = reviewResultsHtml();
+  results.querySelectorAll("[data-review-page]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      reviewPage += btn.dataset.reviewPage === "next" ? 1 : -1;
+      renderReviewResults();
+      results.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
 }
 
 function postWriteFormHtml() {
@@ -564,23 +580,11 @@ function initCommunity() {
 
   if (communityTab === "review") {
     box.innerHTML = tabsHtml + reviewCardsHtml();
+    renderReviewResults();
     box.querySelector("#review-search")?.addEventListener("input", (event) => {
       reviewSearch = event.target.value;
       reviewPage = 1;
-      const cursor = event.target.selectionStart;
-      initCommunity();
-      const input = document.getElementById("review-search");
-      if (input) {
-        input.focus();
-        input.setSelectionRange(cursor, cursor);
-      }
-    });
-    box.querySelectorAll("[data-review-page]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        reviewPage += btn.dataset.reviewPage === "next" ? 1 : -1;
-        initCommunity();
-        box.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      renderReviewResults();
     });
   } else {
     const id = new URLSearchParams(location.search).get("id");
@@ -1109,16 +1113,38 @@ function statusSelectOptions(selected) {
     <option value="done" ${selected === "done" ? "selected" : ""}>완료</option>`;
 }
 
+const APPLY_STATUS_TABS = [
+  { id: "all", label: "전체" },
+  { id: "pending", label: "접수" },
+  { id: "confirmed", label: "확인" },
+  { id: "counseling", label: "상담진행중" },
+  { id: "done", label: "완료" },
+];
+
+function applyResultsListHtml() {
+  const list = filteredApplyCache();
+  return (
+    list
+      .map((item) => {
+        const summary = `${escapeHtml(item.type || "")} · ${escapeHtml(applyFieldsSummary(item))}${item.note ? ` · 메모: ${escapeHtml(item.note)}` : ""}`;
+        return adminItem(
+          { title: applyDisplayName(item) },
+          summary,
+          `<div class="admin-item-actions"><select data-quick-status="${escapeHtml(item.id)}">${statusSelectOptions(item.status || "pending")}</select><button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button></div>`,
+        );
+      })
+      .join("") || `<p class="sub">${applyCache.length ? "검색 결과가 없습니다." : "신청 내역이 없습니다."}</p>`
+  );
+}
+
+function renderApplyResults() {
+  const results = document.getElementById("apply-results");
+  if (!results) return;
+  results.innerHTML = applyResultsListHtml();
+}
+
 function adminApplyPanel(editing) {
   const fieldInputs = applyFieldCache.map((field) => applyFieldInputHtml(field, editing?.values?.[field.id] || "")).join("");
-  const statusTabs = [
-    { id: "all", label: "전체" },
-    { id: "pending", label: "접수" },
-    { id: "confirmed", label: "확인" },
-    { id: "counseling", label: "상담진행중" },
-    { id: "done", label: "완료" },
-  ];
-  const list = filteredApplyCache();
   return `
     <div class="profile-card">
       <h2>${editing ? "수업 신청 수정" : "수업 신청 추가"}</h2>
@@ -1140,20 +1166,9 @@ function adminApplyPanel(editing) {
       <h2>수업 신청 내역</h2>
       <input type="text" id="apply-search" placeholder="이름·연락처·메모 검색" value="${escapeHtml(applyFilter.search)}" style="width:100%;margin-top:12px" />
       <div class="tabs" style="margin:14px 0">
-        ${statusTabs.map((tab) => `<button type="button" class="tab ${applyFilter.status === tab.id ? "active" : ""}" data-apply-filter="${tab.id}">${tab.label}</button>`).join("")}
+        ${APPLY_STATUS_TABS.map((tab) => `<button type="button" class="tab ${applyFilter.status === tab.id ? "active" : ""}" data-apply-filter="${tab.id}">${tab.label}</button>`).join("")}
       </div>
-      ${
-        list
-          .map((item) => {
-            const summary = `${escapeHtml(item.type || "")} · ${escapeHtml(applyFieldsSummary(item))}${item.note ? ` · 메모: ${escapeHtml(item.note)}` : ""}`;
-            return adminItem(
-              { title: applyDisplayName(item) },
-              summary,
-              `<div class="admin-item-actions"><select data-quick-status="${escapeHtml(item.id)}">${statusSelectOptions(item.status || "pending")}</select><button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button></div>`,
-            );
-          })
-          .join("") || `<p class="sub">${applyCache.length ? "검색 결과가 없습니다." : "신청 내역이 없습니다."}</p>`
-      }
+      <div id="apply-results">${applyResultsListHtml()}</div>
     </div>`;
 }
 
