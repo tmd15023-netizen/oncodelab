@@ -1,4 +1,4 @@
-const API = "http://127.0.0.1:3000";
+const API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "http://127.0.0.1:3000" : "";
 let classCache = [];
 let testCache = [];
 let userCache = [];

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import cors from "cors";
 import express from "express";
@@ -8,12 +9,26 @@ import multer from "multer";
 import bcrypt from "bcryptjs";
 import { connectDb, getDb, publicApplication, publicClass, publicTest, publicUser, publicNotice, publicPost, publicApplyField } from "./db.js";
 
+const isServerless = Boolean(process.env.VERCEL);
 const app = express();
 const port = Number(process.env.PORT || 3000);
 app.use(cors());
 app.use(express.json());
+app.use(async (_req, res, next) => {
+  try {
+    await connectDb();
+    next();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "데이터베이스에 연결할 수 없습니다." });
+  }
+});
 
-const uploadsDir = path.join(process.cwd(), "server", "uploads");
+// Vercel's deployed filesystem is read-only except /tmp, and /tmp does not persist
+// between invocations, so uploaded TEST files won't survive on that host — fine for
+// local/traditional hosting, but production file attachments need real object storage
+// (e.g. Vercel Blob or S3) if this ever runs on Vercel long-term.
+const uploadsDir = isServerless ? path.join(os.tmpdir(), "uploads") : path.join(process.cwd(), "server", "uploads");
 fs.mkdirSync(uploadsDir, { recursive: true });
 app.use("/uploads", express.static(uploadsDir));
 const upload = multer({
@@ -369,11 +384,15 @@ app.use((error, _req, res, _next) => {
   res.status(500).json({ error: "서버 오류가 발생했습니다." });
 });
 
-try {
-  await connectDb();
-  app.listen(port, () => console.log(`Oncodelab API http://127.0.0.1:${port}`));
-} catch (error) {
-  console.error("서버를 시작하지 못했습니다.");
-  console.error(error.message);
-  process.exit(1);
+if (!isServerless) {
+  try {
+    await connectDb();
+    app.listen(port, () => console.log(`Oncodelab API http://127.0.0.1:${port}`));
+  } catch (error) {
+    console.error("서버를 시작하지 못했습니다.");
+    console.error(error.message);
+    process.exit(1);
+  }
 }
+
+export default app;
