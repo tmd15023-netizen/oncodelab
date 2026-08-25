@@ -209,7 +209,7 @@ async function fetchBlogReviews() {
     }
   }
   all.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-  blogReviewCache.data = all.slice(0, 30);
+  blogReviewCache.data = all.slice(0, 200);
   blogReviewCache.at = Date.now();
   return blogReviewCache.data;
 }

@@ -18,6 +18,9 @@ let applyFilter = { search: "", status: "all" };
 let communityTab = "info";
 let editPostState = null;
 let blogReviewCache = [];
+let reviewSearch = "";
+let reviewPage = 1;
+const REVIEW_PAGE_SIZE = 12;
 
 const courses = [
   { type: "live", tag: "라이브 LAB", title: "엔트리 코딩 기초 마스터", age: "초등 3~4학년", track: "A 스타터" },
@@ -398,25 +401,52 @@ async function loadBlogReviews() {
   }
 }
 
+function reviewCardHtml(item) {
+  const author = item.blogId === "smartjula" ? "박주라 강사 블로그" : "백승희 강사 블로그";
+  const thumb = item.image
+    ? `<img src="${escapeHtml(item.image)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:auto" />`
+    : `<div class="thumb live">REVIEW</div>`;
+  return `<article class="card">
+    ${thumb}
+    <div class="card-body">
+      <small>${escapeHtml(author)}</small>
+      <h3>${escapeHtml(item.title)}</h3>
+      <a class="btn btn-line" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">블로그에서 보기</a>
+    </div>
+  </article>`;
+}
+
 function reviewCardsHtml() {
-  if (!blogReviewCache.length) return `<p class="sub" style="padding:24px 0">불러올 후기가 없습니다.</p>`;
-  return `<div class="cards">${blogReviewCache
-    .map((item) => {
-      const author = item.blogId === "smartjula" ? "박주라 강사 블로그" : "백승희 강사 블로그";
-      const thumb = item.image
-        ? `<img src="${escapeHtml(item.image)}" alt="" referrerpolicy="no-referrer" style="height:160px;width:100%;object-fit:cover" />`
-        : `<div class="thumb live">REVIEW</div>`;
-      return `<article class="card">
-        ${thumb}
-        <div class="card-body">
-          <small>${escapeHtml(author)}</small>
-          <h3>${escapeHtml(item.title)}</h3>
-          <p>${escapeHtml(item.excerpt)}</p>
-          <a class="btn btn-line" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">블로그에서 보기</a>
-        </div>
-      </article>`;
-    })
-    .join("")}</div>`;
+  const searchBar = `<input type="text" id="review-search" placeholder="블로그 글 제목 검색" value="${escapeHtml(reviewSearch)}" style="width:100%;margin-bottom:20px" />`;
+
+  if (!blogReviewCache.length) {
+    return searchBar + `<p class="sub" style="padding:24px 0">불러올 후기가 없습니다.</p>`;
+  }
+
+  const query = reviewSearch.trim().toLowerCase();
+  const filtered = query ? blogReviewCache.filter((item) => item.title.toLowerCase().includes(query)) : blogReviewCache;
+
+  if (!filtered.length) {
+    return searchBar + `<p class="sub" style="padding:24px 0">검색 결과가 없습니다.</p>`;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / REVIEW_PAGE_SIZE));
+  reviewPage = Math.min(Math.max(1, reviewPage), totalPages);
+  const start = (reviewPage - 1) * REVIEW_PAGE_SIZE;
+  const pageItems = filtered.slice(start, start + REVIEW_PAGE_SIZE);
+
+  const cards = `<div class="cards">${pageItems.map(reviewCardHtml).join("")}</div>`;
+
+  const pagination =
+    totalPages > 1
+      ? `<div class="tabs" style="justify-content:center;align-items:center;margin-top:28px">
+          <button type="button" class="tab" data-review-page="prev" ${reviewPage <= 1 ? "disabled" : ""}>이전 페이지</button>
+          <span style="font-weight:800;color:var(--navy);padding:0 4px">${reviewPage} / ${totalPages}</span>
+          <button type="button" class="tab" data-review-page="next" ${reviewPage >= totalPages ? "disabled" : ""}>다음 페이지</button>
+        </div>`
+      : "";
+
+  return searchBar + cards + pagination;
 }
 
 function postWriteFormHtml() {
@@ -534,6 +564,24 @@ function initCommunity() {
 
   if (communityTab === "review") {
     box.innerHTML = tabsHtml + reviewCardsHtml();
+    box.querySelector("#review-search")?.addEventListener("input", (event) => {
+      reviewSearch = event.target.value;
+      reviewPage = 1;
+      const cursor = event.target.selectionStart;
+      initCommunity();
+      const input = document.getElementById("review-search");
+      if (input) {
+        input.focus();
+        input.setSelectionRange(cursor, cursor);
+      }
+    });
+    box.querySelectorAll("[data-review-page]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        reviewPage += btn.dataset.reviewPage === "next" ? 1 : -1;
+        initCommunity();
+        box.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
   } else {
     const id = new URLSearchParams(location.search).get("id");
     if (id) {
