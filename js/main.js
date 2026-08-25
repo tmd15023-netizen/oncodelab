@@ -435,12 +435,16 @@ function reviewResultsHtml() {
 
   const cards = `<div class="cards review-grid">${pageItems.map(reviewCardHtml).join("")}</div>`;
 
+  const pageButtons = Array.from({ length: totalPages }, (_, i) => i + 1)
+    .map((num) => `<button type="button" class="tab ${num === reviewPage ? "active" : ""}" data-review-page="${num}">${num}</button>`)
+    .join("");
+
   const pagination =
     totalPages > 1
       ? `<div class="tabs" style="justify-content:center;align-items:center;margin-top:28px">
-          <button type="button" class="tab" data-review-page="prev" ${reviewPage <= 1 ? "disabled" : ""}>이전 페이지</button>
-          <span style="font-weight:800;color:var(--navy);padding:0 4px">${reviewPage} / ${totalPages}</span>
-          <button type="button" class="tab" data-review-page="next" ${reviewPage >= totalPages ? "disabled" : ""}>다음 페이지</button>
+          <button type="button" class="tab" data-review-page="prev" ${reviewPage <= 1 ? "disabled" : ""}>이전</button>
+          ${pageButtons}
+          <button type="button" class="tab" data-review-page="next" ${reviewPage >= totalPages ? "disabled" : ""}>다음</button>
         </div>`
       : "";
 
@@ -458,7 +462,10 @@ function renderReviewResults() {
   results.innerHTML = reviewResultsHtml();
   results.querySelectorAll("[data-review-page]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      reviewPage += btn.dataset.reviewPage === "next" ? 1 : -1;
+      const value = btn.dataset.reviewPage;
+      if (value === "prev") reviewPage -= 1;
+      else if (value === "next") reviewPage += 1;
+      else reviewPage = Number(value);
       renderReviewResults();
       results.scrollIntoView({ behavior: "smooth", block: "start" });
     });
