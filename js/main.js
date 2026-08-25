@@ -1308,7 +1308,7 @@ function setupLivePolling() {
       watcher.setCache(fresh);
       watcher.render();
     }
-  }, 15000);
+  }, 5000);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
