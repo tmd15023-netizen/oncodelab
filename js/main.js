@@ -229,7 +229,6 @@ function fillInquiryOptions() {
   const select = document.getElementById("class-select");
   if (!select) return;
   select.innerHTML = [
-    `<option>온라인 Class 신청</option>`,
     ...classCache.map((item) => `<option>${escapeHtml(item.title)}</option>`),
     `<option>TEST 진단</option>`,
   ].join("");
