@@ -81,6 +81,12 @@ async function requireAdmin(req, res, next) {
   next();
 }
 
+async function requireAuth(req, res, next) {
+  req.user = await userFromReq(req);
+  if (!req.user) return res.status(401).json({ error: "로그인이 필요합니다." });
+  next();
+}
+
 async function saveDoc(res, name, id, data, mapFn, missing) {
   if (id) {
     const updated = unwrap(await col(name).findOneAndUpdate({ id }, { $set: data }, { returnDocument: "after" }));
@@ -379,6 +385,46 @@ app.post("/api/auth/login", async (req, res) => {
 app.post("/api/auth/logout", async (req, res) => {
   const token = bearer(req);
   if (token) await col("sessions").deleteOne({ token });
+  res.json({ ok: true });
+});
+
+app.put("/api/auth/me", requireAuth, async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const phone = String(req.body.phone || "").trim();
+  if (!name) return res.status(400).json({ error: "이름을 입력해 주세요." });
+  if (!validPhone(phone)) return res.status(400).json({ error: "전화번호를 올바르게 입력해 주세요. 예: 010-1234-5678" });
+  await col("users").updateOne({ email: req.user.email }, { $set: { name, phone } });
+  res.json(publicUser({ ...req.user, name, phone }));
+});
+
+app.put("/api/auth/password", requireAuth, async (req, res) => {
+  const currentPassword = String(req.body.currentPassword || "");
+  const newPassword = String(req.body.newPassword || "");
+  if (!(await bcrypt.compare(currentPassword, req.user.passwordHash || ""))) {
+    return res.status(403).json({ error: "현재 비밀번호가 올바르지 않습니다." });
+  }
+  if (!validPassword(newPassword)) return res.status(400).json({ error: "새 비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다." });
+  await col("users").updateOne({ email: req.user.email }, { $set: { passwordHash: await bcrypt.hash(newPassword, 10) } });
+  res.json({ ok: true });
+});
+
+// No email/SMS provider is configured, so this verifies identity with the
+// account's own name+email+phone instead of a mailed reset link — reasonable
+// for this site's scale, but anyone who knows those three details for an
+// account could reset its password. Add real email-based verification if
+// that becomes a concern.
+app.post("/api/auth/reset-password", async (req, res) => {
+  const name = String(req.body.name || "").trim();
+  const email = String(req.body.email || "").trim().toLowerCase();
+  const phone = String(req.body.phone || "").trim();
+  const password = String(req.body.password || "");
+  const digitsOnly = (value) => String(value || "").replace(/\D/g, "");
+  if (!validPassword(password)) return res.status(400).json({ error: "비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다." });
+  const user = await col("users").findOne({ email });
+  if (!user || user.name !== name || digitsOnly(user.phone) !== digitsOnly(phone)) {
+    return res.status(401).json({ error: "일치하는 회원 정보를 찾을 수 없습니다." });
+  }
+  await col("users").updateOne({ email }, { $set: { passwordHash: await bcrypt.hash(password, 10) } });
   res.json({ ok: true });
 });
 

@@ -328,9 +328,14 @@ function openAuth(tab) {
   });
   document.getElementById("login-form")?.classList.toggle("active", tab === "login");
   document.getElementById("signup-form")?.classList.toggle("active", tab === "signup");
-  document.getElementById("auth-title").textContent = tab === "login" ? "로그인" : "회원가입";
+  document.getElementById("reset-form")?.classList.toggle("active", tab === "reset");
+  document.getElementById("auth-title").textContent = tab === "login" ? "로그인" : tab === "signup" ? "회원가입" : "비밀번호 재설정";
   document.getElementById("auth-hint").textContent =
-    tab === "login" ? "온코드랩 계정으로 로그인하세요." : "비밀번호는 영문과 숫자를 포함해 8자 이상으로 만들어 주세요.";
+    tab === "login"
+      ? "온코드랩 계정으로 로그인하세요."
+      : tab === "signup"
+        ? "비밀번호는 영문과 숫자를 포함해 8자 이상으로 만들어 주세요."
+        : "가입 시 등록한 이름·이메일·전화번호를 확인한 뒤 새 비밀번호로 바꿔드려요.";
   const msg = document.getElementById("auth-msg");
   if (msg && !msg.classList.contains("ok")) {
     msg.classList.remove("show", "error", "ok");
@@ -720,6 +725,7 @@ function setupAuth() {
             <input required type="password" name="password" placeholder="비밀번호" autocomplete="current-password" />
             <button class="btn btn-orange" type="submit">로그인</button>
             <p class="auth-switch">아직 회원이 아니신가요? <button type="button" data-auth-tab="signup">회원가입</button></p>
+            <p class="auth-switch"><button type="button" data-auth-tab="reset">비밀번호를 잊으셨나요?</button></p>
           </form>
           <form class="auth-form" id="signup-form">
             <input required name="name" placeholder="이름" autocomplete="name" />
@@ -729,6 +735,15 @@ function setupAuth() {
             <input required type="password" name="password2" placeholder="비밀번호 확인" minlength="8" autocomplete="new-password" />
             <button class="btn btn-green" type="submit">회원가입</button>
             <p class="auth-switch">이미 계정이 있나요? <button type="button" data-auth-tab="login">로그인</button></p>
+          </form>
+          <form class="auth-form" id="reset-form" autocomplete="off">
+            <input required name="name" placeholder="이름" autocomplete="off" />
+            <input required type="email" name="email" placeholder="이메일" autocomplete="off" />
+            <input required type="tel" name="phone" placeholder="전화번호 (010-0000-0000)" autocomplete="off" />
+            <input required type="password" name="password" placeholder="새 비밀번호 (영문+숫자 8자 이상)" minlength="8" autocomplete="new-password" />
+            <input required type="password" name="password2" placeholder="새 비밀번호 확인" minlength="8" autocomplete="new-password" />
+            <button class="btn btn-orange" type="submit">비밀번호 변경</button>
+            <p class="auth-switch">로그인 정보가 기억나셨나요? <button type="button" data-auth-tab="login">로그인</button></p>
           </form>
         </div>
       </div>`,
@@ -784,6 +799,22 @@ function setupAuth() {
     }
   });
 
+  document.getElementById("reset-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    const { name, email, phone, password, password2 } = Object.fromEntries(new FormData(form));
+    if (!isValidPassword(password)) return showAuthMsg("비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.", true);
+    if (password !== password2) return showAuthMsg("비밀번호가 서로 다릅니다.", true);
+    try {
+      await api("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ name, email, phone, password }) });
+      form.reset();
+      showAuthMsg("비밀번호가 변경되었습니다. 새 비밀번호로 로그인해 주세요.", false);
+      setTimeout(() => openAuth("login"), 1200);
+    } catch (error) {
+      showAuthMsg(error.message, true);
+    }
+  });
+
   refreshAuthButton();
 }
 
@@ -811,7 +842,65 @@ function initMypage() {
       <p>전화번호 ${escapeHtml(me.phone || "-")}</p>
       <p>권한 <span class="role-badge ${isAdmin(me) ? "admin" : ""}">${isAdmin(me) ? "관리자" : "일반 회원"}</span></p>
       ${isAdmin(me) ? `<p style="margin-top:18px"><a class="btn btn-green" href="admin">어드민 페이지로 이동</a></p>` : ""}
+    </div>
+    <div class="profile-card" style="margin-top:20px">
+      <h2>회원정보 수정</h2>
+      <form class="form" id="profile-form" style="margin-top:16px" autocomplete="off">
+        <input required name="name" placeholder="이름" value="${escapeHtml(me.name)}" autocomplete="off" />
+        <input required type="tel" name="phone" placeholder="전화번호 (010-0000-0000)" value="${escapeHtml(me.phone || "")}" autocomplete="off" />
+        <button class="btn btn-orange" type="submit">정보 저장</button>
+      </form>
+      <p class="auth-msg" id="profile-msg"></p>
+    </div>
+    <div class="profile-card" style="margin-top:20px">
+      <h2>비밀번호 변경</h2>
+      <form class="form" id="password-form" style="margin-top:16px" autocomplete="off">
+        <input required type="password" name="currentPassword" placeholder="현재 비밀번호" autocomplete="current-password" />
+        <input required type="password" name="newPassword" placeholder="새 비밀번호 (영문+숫자 8자 이상)" minlength="8" autocomplete="new-password" />
+        <input required type="password" name="newPassword2" placeholder="새 비밀번호 확인" minlength="8" autocomplete="new-password" />
+        <button class="btn btn-line" type="submit">비밀번호 변경</button>
+      </form>
+      <p class="auth-msg" id="password-msg"></p>
     </div>`;
+
+  const setMsg = (el, text, isError) => {
+    el.textContent = text;
+    el.classList.add("show", isError ? "error" : "ok");
+    el.classList.remove(isError ? "ok" : "error");
+  };
+
+  box.querySelector("#profile-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    const { name, phone } = Object.fromEntries(new FormData(form));
+    const msg = box.querySelector("#profile-msg");
+    if (!isValidPhone(phone)) return setMsg(msg, "전화번호를 올바르게 입력해 주세요. 예: 010-1234-5678", true);
+    try {
+      const updated = await api("/api/auth/me", { method: "PUT", body: JSON.stringify({ name, phone }) });
+      localStorage.setItem("oncodelab-session", JSON.stringify(updated));
+      setMsg(msg, "저장되었습니다.", false);
+      refreshAuthButton();
+      initMypage();
+    } catch (error) {
+      setMsg(msg, error.message, true);
+    }
+  });
+
+  box.querySelector("#password-form")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    const { currentPassword, newPassword, newPassword2 } = Object.fromEntries(new FormData(form));
+    const msg = box.querySelector("#password-msg");
+    if (!isValidPassword(newPassword)) return setMsg(msg, "새 비밀번호는 영문과 숫자를 포함해 8자 이상이어야 합니다.", true);
+    if (newPassword !== newPassword2) return setMsg(msg, "새 비밀번호가 서로 다릅니다.", true);
+    try {
+      await api("/api/auth/password", { method: "PUT", body: JSON.stringify({ currentPassword, newPassword }) });
+      form.reset();
+      setMsg(msg, "비밀번호가 변경되었습니다.", false);
+    } catch (error) {
+      setMsg(msg, error.message, true);
+    }
+  });
 }
 
 function adminItem(item, extra, actions) {
