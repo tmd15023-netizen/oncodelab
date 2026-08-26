@@ -180,6 +180,55 @@ function firstImage(html) {
   return match ? match[1] : "";
 }
 
+function logNoFromLink(link) {
+  return String(link || "").match(/\/(\d+)(?:\?|$)/)?.[1] || "";
+}
+
+function parseNaverListDate(value) {
+  const m = String(value || "").match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  if (!m) return "";
+  const [, y, mo, d] = m;
+  return new Date(`${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`).toISOString();
+}
+
+// Naver blog RSS only ever returns the ~50 most recent posts per blog, so it can't
+// surface a blog's full archive. PostTitleListAsync is the (undocumented, but
+// publicly used) JSON endpoint the blog's own post-list page paginates through —
+// we use it to pull older post titles/links beyond what RSS exposes. It doesn't
+// include a thumbnail/excerpt, so those posts fall back to a plain badge in the UI.
+async function fetchOlderPostTitles(blogId, skipLogNos) {
+  const older = [];
+  for (let page = 1; page <= 10; page++) {
+    try {
+      const res = await fetch(
+        `https://blog.naver.com/PostTitleListAsync.naver?blogId=${encodeURIComponent(blogId)}&currentPage=${page}&categoryNo=&parentCategoryNo=&countPerPage=30`,
+        { headers: { "User-Agent": "Mozilla/5.0" } },
+      );
+      const raw = await res.text();
+      const data = JSON.parse(raw.replace(/\\'/g, "'"));
+      const posts = data?.postList || [];
+      if (!posts.length) break;
+      for (const post of posts) {
+        if (skipLogNos.has(post.logNo)) continue;
+        skipLogNos.add(post.logNo);
+        older.push({
+          title: decodeURIComponent(String(post.title || "").replace(/\+/g, " ")),
+          link: `https://blog.naver.com/${blogId}/${post.logNo}`,
+          image: "",
+          excerpt: "",
+          pubDate: parseNaverListDate(post.addDate),
+          blogId,
+        });
+      }
+      if (posts.length < 30) break;
+    } catch (error) {
+      console.error(`블로그(${blogId}) 글 목록(${page}p)을 불러오지 못했습니다:`, error.message);
+      break;
+    }
+  }
+  return older;
+}
+
 async function fetchBlogReviews() {
   if (blogReviewCache.data && Date.now() - blogReviewCache.at < BLOG_CACHE_MS) {
     return blogReviewCache.data;
@@ -187,6 +236,7 @@ async function fetchBlogReviews() {
   const parser = new XMLParser();
   const all = [];
   for (const blogId of BLOG_IDS) {
+    const seenLogNos = new Set();
     try {
       const res = await fetch(`https://rss.blog.naver.com/${blogId}.xml`, {
         headers: { "User-Agent": "Mozilla/5.0" },
@@ -195,6 +245,8 @@ async function fetchBlogReviews() {
       const items = parser.parse(xml)?.rss?.channel?.item;
       const list = Array.isArray(items) ? items : items ? [items] : [];
       for (const item of list) {
+        const logNo = logNoFromLink(item.link);
+        if (logNo) seenLogNos.add(logNo);
         all.push({
           title: String(item.title || "").trim(),
           link: String(item.link || "").trim(),
@@ -207,9 +259,10 @@ async function fetchBlogReviews() {
     } catch (error) {
       console.error(`블로그(${blogId}) RSS를 불러오지 못했습니다:`, error.message);
     }
+    all.push(...(await fetchOlderPostTitles(blogId, seenLogNos)));
   }
   all.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-  blogReviewCache.data = all.slice(0, 200);
+  blogReviewCache.data = all.slice(0, 600);
   blogReviewCache.at = Date.now();
   return blogReviewCache.data;
 }

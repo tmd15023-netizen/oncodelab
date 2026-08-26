@@ -428,6 +428,22 @@ function reviewCardHtml(item) {
   </article>`;
 }
 
+function paginationRange(current, total) {
+  const delta = 2;
+  const range = [];
+  for (let i = 1; i <= total; i++) {
+    if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) range.push(i);
+  }
+  const withDots = [];
+  let prev = 0;
+  for (const num of range) {
+    if (prev && num - prev > 1) withDots.push("…");
+    withDots.push(num);
+    prev = num;
+  }
+  return withDots;
+}
+
 function reviewResultsHtml() {
   if (!blogReviewCache.length) {
     return `<p class="sub" style="padding:24px 0">불러올 후기가 없습니다.</p>`;
@@ -447,8 +463,12 @@ function reviewResultsHtml() {
 
   const cards = `<div class="cards review-grid">${pageItems.map(reviewCardHtml).join("")}</div>`;
 
-  const pageButtons = Array.from({ length: totalPages }, (_, i) => i + 1)
-    .map((num) => `<button type="button" class="tab ${num === reviewPage ? "active" : ""}" data-review-page="${num}">${num}</button>`)
+  const pageButtons = paginationRange(reviewPage, totalPages)
+    .map((num) =>
+      num === "…"
+        ? `<span style="padding:0 6px;color:var(--muted)">…</span>`
+        : `<button type="button" class="tab ${num === reviewPage ? "active" : ""}" data-review-page="${num}">${num}</button>`,
+    )
     .join("");
 
   const pagination =
