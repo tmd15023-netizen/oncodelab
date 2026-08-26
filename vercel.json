@@ -1,5 +1,6 @@
 {
   "cleanUrls": true,
+  "regions": ["icn1"],
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index" },
     { "source": "/uploads/:path*", "destination": "/api/index" }
