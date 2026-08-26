@@ -204,7 +204,7 @@ function renderClassPage() {
           <small>${escapeHtml(item.status || "온라인 · 진행중")}</small>
           <h3>${escapeHtml(item.title)}</h3>
           <p>${escapeHtml(item.summary || "")}</p>
-          <a class="btn btn-orange" href="contact">신청하기</a>
+          <a class="btn btn-orange" href="contact?classTitle=${encodeURIComponent(item.title)}">신청하기</a>
         </div>
       </article>`,
     )
@@ -274,6 +274,17 @@ function fillInquiryOptions() {
     ...classCache.map((item) => `<option>${escapeHtml(item.title)}</option>`),
     `<option>TEST 진단</option>`,
   ].join("");
+}
+
+function initClassSelection() {
+  const input = document.getElementById("class-type-input");
+  const notice = document.getElementById("selected-class-notice");
+  if (!input || !notice) return;
+  const classTitle = new URLSearchParams(location.search).get("classTitle") || "";
+  input.value = classTitle;
+  notice.innerHTML = classTitle
+    ? `<p class="sub" style="margin-bottom:16px"><b>${escapeHtml(classTitle)}</b> 강좌에 신청합니다.</p>`
+    : "";
 }
 
 async function submitInquiry(event) {
@@ -390,6 +401,7 @@ async function refreshAccountViews() {
   renderClassPage();
   fillInquiryOptions();
   renderApplyFields();
+  initClassSelection();
   initNotices();
   initCommunity();
 }
@@ -1762,6 +1774,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderClassPage();
     fillInquiryOptions();
     renderApplyFields();
+    initClassSelection();
     initMypage();
     initAdmin();
     initTests();
