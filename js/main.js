@@ -1003,10 +1003,10 @@ function initAdmin() {
   const tabs = [
     { id: "overview", label: "대시보드" },
     { id: "class", label: "Class 관리" },
+    { id: "apply", label: "Class 신청자" },
     { id: "test", label: "TEST" },
     { id: "notice", label: "공지사항" },
     { id: "community", label: "커뮤니티" },
-    { id: "apply", label: "Class 신청" },
     { id: "fields", label: "수업신청내역" },
     { id: "users", label: "가입자 목록" },
   ];
