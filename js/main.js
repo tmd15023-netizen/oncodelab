@@ -507,7 +507,10 @@ function reviewResultsHtml() {
 }
 
 function reviewCardsHtml() {
-  const searchBar = `<input type="text" id="review-search" placeholder="블로그 글 제목 검색" value="${escapeHtml(reviewSearch)}" style="width:100%;margin-bottom:20px" />`;
+  const searchBar = `<div class="review-search-wrap">
+    <span class="review-search-icon">🔍</span>
+    <input type="text" id="review-search" class="review-search-input" placeholder="검색" value="${escapeHtml(reviewSearch)}" />
+  </div>`;
   return `${searchBar}<div id="review-results"></div>`;
 }
 
