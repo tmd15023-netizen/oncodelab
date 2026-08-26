@@ -423,12 +423,18 @@ h3 { font-size: 22px; }
 .privacy-agree {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
   font-size: 14px;
   color: var(--text);
   font-weight: 700;
 }
-.privacy-agree input { width: auto; margin-top: 3px; }
+.privacy-agree input[type="checkbox"] {
+  width: 18px;
+  flex: 0 0 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--orange);
+}
 .form input, .form select, .form textarea {
   width: 100%;
   border: 1px solid var(--line);
