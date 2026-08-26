@@ -77,6 +77,7 @@ export function publicTest(test, { includeSecret = false } = {}) {
         linkUrl: test.linkUrl || "",
         fileUrl: test.fileUrl || "",
         fileName: test.fileName || "",
+        unlockCount: test.unlockCount || 0,
       }
     : { id: test.id, title: test.title, summary: test.summary };
 }

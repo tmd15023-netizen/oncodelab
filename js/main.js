@@ -100,12 +100,24 @@ async function loadSiteData() {
   }
 }
 
+// Intentionally in-memory (not sessionStorage): a TEST should require its
+// password again every time the page is loaded, and should re-lock itself
+// as soon as the visitor actually starts it (see lockTest()).
+let unlockedTestIds = [];
+let unlockedTestBodies = {};
+
 function unlockedIds() {
-  return readJson(sessionStorage, "oncodelab-unlocked-tests", []);
+  return unlockedTestIds;
 }
 
 function unlockedBodies() {
-  return readJson(sessionStorage, "oncodelab-unlocked-bodies", {});
+  return unlockedTestBodies;
+}
+
+function lockTest(id) {
+  unlockedTestIds = unlockedTestIds.filter((entry) => entry !== id);
+  delete unlockedTestBodies[id];
+  initTests();
 }
 
 const COUNSEL_CHAT_URL = "https://open.kakao.com/o/seEpayjh";
@@ -1097,7 +1109,7 @@ function adminTestPanel(editing) {
       </form>
     </div>
     <div class="profile-card" style="margin-top:20px"><h2>TEST 목록</h2>
-      ${testCache.map((item) => adminItem(item, `${escapeHtml(item.summary || "")}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""}`, `<div class="admin-item-actions"><span class="role-badge admin">${escapeHtml(item.password || "")}</span><button class="btn btn-line" type="button" data-edit-test="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-test="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 TEST가 없습니다.</p>`}
+      ${testCache.map((item) => adminItem(item, `${escapeHtml(item.summary || "")}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""} · 누적 응시 ${item.unlockCount || 0}회`, `<div class="admin-item-actions"><span class="role-badge admin">${escapeHtml(item.password || "")}</span><button class="btn btn-line" type="button" data-edit-test="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-test="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 TEST가 없습니다.</p>`}
     </div>`;
 }
 
@@ -1489,8 +1501,8 @@ function initTests() {
           open
             ? `<div class="test-body">
                 ${content.body ? `<p>${escapeHtml(content.body)}</p>` : ""}
-                ${content.linkUrl ? `<p><a class="btn btn-orange" href="${escapeHtml(content.linkUrl)}" target="_blank" rel="noopener">TEST 시작하기</a></p>` : ""}
-                ${content.fileUrl ? `<p><a class="btn btn-line" href="${escapeHtml(API + content.fileUrl)}" target="_blank" rel="noopener">${escapeHtml(content.fileName || "첨부 파일")} 다운로드</a></p>` : ""}
+                ${content.linkUrl ? `<p><a class="btn btn-orange" href="${escapeHtml(content.linkUrl)}" target="_blank" rel="noopener" ${admin ? "" : `data-start-test="${escapeHtml(item.id)}"`}>TEST 시작하기</a></p>` : ""}
+                ${content.fileUrl ? `<p><a class="btn btn-line" href="${escapeHtml(API + content.fileUrl)}" target="_blank" rel="noopener" ${admin ? "" : `data-start-test="${escapeHtml(item.id)}"`}>${escapeHtml(content.fileName || "첨부 파일")} 다운로드</a></p>` : ""}
                 ${hasContent ? "" : `<p class="sub">등록된 내용이 없습니다.</p>`}
               </div>${admin ? `<p class="test-note">관리자 계정으로 열려 있습니다.</p>` : `<button class="btn btn-line lock-again" type="button" data-lock="${escapeHtml(item.id)}">다시 잠그기</button>`}`
             : `<form class="unlock-form" data-unlock="${escapeHtml(item.id)}"><input type="password" name="code" placeholder="수업에서 받은 비밀번호" autocomplete="off" /><button class="btn btn-green" type="submit">잠금 해제</button><p class="unlock-error" hidden>비밀번호가 올바르지 않습니다.</p></form>`
@@ -1507,10 +1519,8 @@ function initTests() {
           method: "POST",
           body: JSON.stringify({ password: form.code.value.trim() }),
         });
-        const ids = unlockedIds();
-        if (!ids.includes(form.dataset.unlock)) ids.push(form.dataset.unlock);
-        sessionStorage.setItem("oncodelab-unlocked-tests", JSON.stringify(ids));
-        sessionStorage.setItem("oncodelab-unlocked-bodies", JSON.stringify({ ...bodies, [form.dataset.unlock]: result }));
+        if (!unlockedTestIds.includes(form.dataset.unlock)) unlockedTestIds.push(form.dataset.unlock);
+        unlockedTestBodies[form.dataset.unlock] = result;
         initTests();
       } catch {
         form.querySelector(".unlock-error").hidden = false;
@@ -1518,9 +1528,12 @@ function initTests() {
     });
   });
   box.querySelectorAll("[data-lock]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      sessionStorage.setItem("oncodelab-unlocked-tests", JSON.stringify(unlockedIds().filter((id) => id !== btn.dataset.lock)));
-      initTests();
+    btn.addEventListener("click", () => lockTest(btn.dataset.lock));
+  });
+  box.querySelectorAll("[data-start-test]").forEach((link) => {
+    link.addEventListener("click", () => {
+      const id = link.dataset.startTest;
+      setTimeout(() => lockTest(id), 150);
     });
   });
 }

@@ -234,6 +234,7 @@ app.post("/api/tests/:id/unlock", async (req, res) => {
   if (!test || test.password !== String(req.body.password || "").trim()) {
     return res.status(403).json({ error: "비밀번호가 올바르지 않습니다." });
   }
+  await col("tests").updateOne({ id: test.id }, { $inc: { unlockCount: 1 } });
   res.json({ id: test.id, body: test.body, linkUrl: test.linkUrl || "", fileUrl: test.fileUrl || "", fileName: test.fileName || "" });
 });
 
