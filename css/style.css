@@ -73,7 +73,7 @@ img { max-width: 100%; display: block; }
 }
 .topbar-brand {
   font-size: clamp(20px, 4vw, 28px);
-  font-weight: 900;
+  font-weight: 500;
   letter-spacing: -0.02em;
 }
 .topbar-contact { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
