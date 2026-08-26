@@ -35,7 +35,6 @@ let editFieldId = null;
 let applyFilter = { search: "", status: "all" };
 let communityTab = "info";
 let editPostState = null;
-let showQuestionForm = false;
 let blogReviewCache = [];
 let reviewSearch = "";
 let reviewPage = 1;
@@ -528,12 +527,6 @@ function renderReviewResults() {
   });
 }
 
-function questionToggleHtml() {
-  return `<div style="margin-bottom:20px">
-    <button class="btn btn-orange" type="button" data-toggle-question>${showQuestionForm ? "질문하기 닫기" : "질문하기"}</button>
-  </div>`;
-}
-
 function postWriteFormHtml() {
   return `<div class="profile-card" style="margin-bottom:20px">
     <h2>질문하기</h2>
@@ -550,9 +543,9 @@ function postWriteFormHtml() {
   </div>`;
 }
 
-function postListHtml() {
-  if (!postCache.length) return `<p class="sub" style="padding:24px 0">등록된 글이 없습니다.</p>`;
-  return `<div class="board">${postCache
+function postListHtml(list = postCache) {
+  if (!list.length) return `<p class="sub" style="padding:24px 0">등록된 글이 없습니다.</p>`;
+  return `<div class="board">${list
     .map(
       (item) =>
         `<a href="community?id=${encodeURIComponent(item.id)}"><em>${escapeHtml(item.tag || "질문")}</em><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.name || "")} · ${formatBoardDate(item.createdAt)}</span></a>`,
@@ -602,7 +595,6 @@ async function submitNewPost(event) {
   try {
     const created = await api("/api/posts", { method: "POST", body: JSON.stringify(data) });
     postCache = [created, ...postCache];
-    showQuestionForm = false;
     initCommunity();
   } catch (error) {
     window.alert(error.message);
@@ -646,6 +638,7 @@ function initCommunity() {
   const tabsHtml = `<div class="tabs">
     <button type="button" class="tab ${communityTab === "info" ? "active" : ""}" data-community-tab="info">교육정보</button>
     <button type="button" class="tab ${communityTab === "review" ? "active" : ""}" data-community-tab="review">교육후기</button>
+    <button type="button" class="tab ${communityTab === "question" ? "active" : ""}" data-community-tab="question">질문하기</button>
   </div>`;
 
   if (communityTab === "review") {
@@ -676,12 +669,10 @@ function initCommunity() {
       }
     } else {
       editPostState = null;
-      box.innerHTML = tabsHtml + questionToggleHtml() + (showQuestionForm ? postWriteFormHtml() : "") + postListHtml();
+      const isQuestion = communityTab === "question";
+      const list = isQuestion ? postCache.filter((item) => (item.tag || "질문") === "질문") : postCache;
+      box.innerHTML = tabsHtml + (isQuestion ? postWriteFormHtml() : "") + postListHtml(list);
       box.querySelector("#post-write-form")?.addEventListener("submit", submitNewPost);
-      box.querySelector("[data-toggle-question]")?.addEventListener("click", () => {
-        showQuestionForm = !showQuestionForm;
-        initCommunity();
-      });
     }
   }
 
