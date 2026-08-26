@@ -93,8 +93,12 @@ export function publicTest(test, { includeSecret = false } = {}) {
     : { id: test.id, title: test.title, summary: test.summary };
 }
 
-export function publicClass({ id, label, tone, status, title, summary }) {
-  return { id, label, tone, status, title, summary };
+export function publicClass(cls, { includeSecret = false } = {}) {
+  if (!cls) return null;
+  const base = { id: cls.id, label: cls.label, tone: cls.tone, status: cls.status, title: cls.title, summary: cls.summary };
+  return includeSecret
+    ? { ...base, linkUrl: cls.linkUrl || "", fileUrl: cls.fileUrl || "", fileName: cls.fileName || "", password: cls.password || "" }
+    : base;
 }
 
 export function publicNotice({ id, tag, title, body, createdAt }) {

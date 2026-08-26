@@ -861,6 +861,11 @@ function initMypage() {
       ${isAdmin(me) ? `<p style="margin-top:18px"><a class="btn btn-green" href="admin">어드민 페이지로 이동</a></p>` : ""}
     </div>
     <div class="profile-card" style="margin-top:20px">
+      <h2>내 수업 신청 현황</h2>
+      <p class="sub">신청하신 연락처로 확인됩니다. 승인 완료되면 여기서 바로 강좌에 입장할 수 있어요.</p>
+      <div id="my-applications" style="margin-top:16px"><p class="sub">불러오는 중...</p></div>
+    </div>
+    <div class="profile-card" style="margin-top:20px">
       <h2>회원정보 수정</h2>
       <form class="form" id="profile-form" style="margin-top:16px" autocomplete="off">
         <input required name="name" placeholder="이름" value="${escapeHtml(me.name)}" autocomplete="off" />
@@ -885,6 +890,34 @@ function initMypage() {
     el.classList.add("show", isError ? "error" : "ok");
     el.classList.remove(isError ? "ok" : "error");
   };
+
+  (async () => {
+    const container = box.querySelector("#my-applications");
+    if (!container) return;
+    try {
+      const mine = await api("/api/my-applications");
+      if (!mine.length) {
+        container.innerHTML = `<p class="sub">신청 내역이 없습니다.</p>`;
+        return;
+      }
+      container.innerHTML = mine
+        .map((item) => {
+          const actions = item.classAccess
+            ? `<div class="admin-item-actions">
+                ${item.classAccess.linkUrl ? `<a class="btn btn-orange" href="${escapeHtml(item.classAccess.linkUrl)}" target="_blank" rel="noopener">강좌 입장하기</a>` : ""}
+                ${item.classAccess.fileUrl ? `<a class="btn btn-line" href="${escapeHtml(API + item.classAccess.fileUrl)}" target="_blank" rel="noopener">${escapeHtml(item.classAccess.fileName || "자료")} 다운로드</a>` : ""}
+              </div>`
+            : `<span class="role-badge">${escapeHtml(applyStatus(item.status))}</span>`;
+          return `<div class="admin-item">
+            <div><b>${escapeHtml(item.type || "수업 신청")}</b><p>${formatAdminDate(item.createdAt)}</p></div>
+            ${actions}
+          </div>`;
+        })
+        .join("");
+    } catch {
+      container.innerHTML = `<p class="sub">불러오지 못했습니다.</p>`;
+    }
+  })();
 
   box.querySelector("#profile-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -973,8 +1006,8 @@ function initAdmin() {
     { id: "test", label: "TEST" },
     { id: "notice", label: "공지사항" },
     { id: "community", label: "커뮤니티" },
-    { id: "apply", label: "수업 신청" },
-    { id: "fields", label: "신청서 입력 항목" },
+    { id: "apply", label: "Class 신청" },
+    { id: "fields", label: "수업신청내역" },
     { id: "users", label: "가입자 목록" },
   ];
   box.className = "admin-shell";
@@ -1235,7 +1268,7 @@ function adminClassPanel(editing) {
   return `
     <div class="profile-card">
       <h2>${editing ? "Class 수정" : "Class 추가"}</h2>
-      <form class="admin-form" id="class-form">
+      <form class="admin-form" id="class-form" data-file-url="${escapeHtml(editing?.fileUrl || "")}" data-file-name="${escapeHtml(editing?.fileName || "")}">
         <div class="admin-form-row">
           <input required name="label" maxlength="16" placeholder="카테고리 (예: AI, CODE)" value="${escapeHtml(editing?.label || "")}" />
           <select name="tone">
@@ -1247,6 +1280,15 @@ function adminClassPanel(editing) {
         <input name="status" placeholder="상태 (예: 온라인 · 진행중)" value="${escapeHtml(editing?.status || "온라인 · 진행중")}" />
         <input required name="title" placeholder="교육 제목" value="${escapeHtml(editing?.title || "")}" />
         <textarea required name="summary" rows="3" placeholder="교육 설명">${escapeHtml(editing?.summary || "")}</textarea>
+        <p class="sub">아래는 신청이 <b>승인 완료</b>된 사람만 마이페이지에서 볼 수 있는 강좌 접속 정보예요.</p>
+        <input name="linkUrl" placeholder="강좌 링크 (선택, 예: 줌·강의실 주소)" value="${escapeHtml(editing?.linkUrl || "")}" />
+        <input type="file" name="file" />
+        ${
+          editing?.fileName
+            ? `<label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><input type="checkbox" name="removeFile" /> 현재 첨부 파일(${escapeHtml(editing.fileName)}) 삭제</label>`
+            : ""
+        }
+        <input name="password" placeholder="강좌 비밀번호 (선택, 안내용)" value="${escapeHtml(editing?.password || "")}" />
         <div class="admin-form-actions">
           <button class="btn btn-green" type="submit">${editing ? "수정 저장" : "교육 추가"}</button>
           ${editing ? `<button class="btn btn-line" type="button" data-cancel-class>취소</button>` : ""}
@@ -1254,7 +1296,7 @@ function adminClassPanel(editing) {
       </form>
     </div>
     <div class="profile-card" style="margin-top:20px"><h2>Class 목록</h2>
-      ${classCache.map((item) => adminItem(item, `${escapeHtml(item.label || "")} · ${escapeHtml(item.summary || "")}`, `<div class="admin-item-actions"><button class="btn btn-line" type="button" data-edit-class="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-class="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 교육이 없습니다.</p>`}
+      ${classCache.map((item) => adminItem(item, `${escapeHtml(item.label || "")} · ${escapeHtml(item.summary || "")}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""}`, `<div class="admin-item-actions"><button class="btn btn-line" type="button" data-edit-class="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-class="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 교육이 없습니다.</p>`}
     </div>`;
 }
 
@@ -1496,6 +1538,23 @@ async function saveAdminClass(event) {
   editClassId = null;
   adminTab = "class";
   adminNav = "class";
+  let fileUrl = form.dataset.fileUrl || "";
+  let fileName = form.dataset.fileName || "";
+  if (form.removeFile?.checked) {
+    fileUrl = "";
+    fileName = "";
+  }
+  const fileInput = form.querySelector('input[name="file"]');
+  if (fileInput?.files?.[0]) {
+    try {
+      const uploaded = await uploadFile(fileInput.files[0], "/api/admin/classes/upload");
+      fileUrl = uploaded.fileUrl;
+      fileName = uploaded.fileName;
+    } catch (error) {
+      window.alert(error.message);
+      return;
+    }
+  }
   await saveItem("classes", id, {
     id,
     label: form.label.value.trim() || "CLASS",
@@ -1503,6 +1562,10 @@ async function saveAdminClass(event) {
     status: form.status.value.trim() || "온라인 · 진행중",
     title: form.title.value.trim(),
     summary: form.summary.value.trim(),
+    linkUrl: form.linkUrl.value.trim(),
+    fileUrl,
+    fileName,
+    password: form.password.value.trim(),
   });
 }
 
@@ -1565,14 +1628,14 @@ async function moveApplyField(id, dir) {
   }
 }
 
-async function uploadTestFile(file) {
+async function uploadFile(file, endpoint) {
   const formData = new FormData();
   formData.append("file", file);
   const headers = {};
   if (token()) headers.Authorization = `Bearer ${token()}`;
   let res;
   try {
-    res = await fetch(API + "/api/admin/tests/upload", { method: "POST", headers, body: formData });
+    res = await fetch(API + endpoint, { method: "POST", headers, body: formData });
   } catch {
     throw new Error("서버에 연결할 수 없습니다.");
   }
@@ -1597,7 +1660,7 @@ async function saveAdminTest(event) {
   const fileInput = form.querySelector('input[name="file"]');
   if (fileInput?.files?.[0]) {
     try {
-      const uploaded = await uploadTestFile(fileInput.files[0]);
+      const uploaded = await uploadFile(fileInput.files[0], "/api/admin/tests/upload");
       fileUrl = uploaded.fileUrl;
       fileName = uploaded.fileName;
     } catch (error) {

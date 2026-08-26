@@ -105,6 +105,10 @@ function classPayload(body, id) {
     status: String(body.status || "온라인 · 진행중").trim(),
     title: String(body.title || "").trim(),
     summary: String(body.summary || "").trim(),
+    linkUrl: String(body.linkUrl || "").trim(),
+    fileUrl: String(body.fileUrl || "").trim(),
+    fileName: String(body.fileName || "").trim(),
+    password: String(body.password || "").trim(),
   };
 }
 
@@ -278,8 +282,43 @@ app.get("/api/blog-reviews", async (_req, res) => {
   res.json(await fetchBlogReviews());
 });
 
-app.get("/api/classes", async (_req, res) => {
-  res.json((await col("classes").find({}).toArray()).map(publicClass));
+app.get("/api/classes", async (req, res) => {
+  const admin = isAdmin(await userFromReq(req));
+  res.json((await col("classes").find({}).toArray()).map((item) => publicClass(item, { includeSecret: admin })));
+});
+
+app.post("/api/admin/classes/upload", requireAdmin, upload.single("file"), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "파일을 선택해 주세요." });
+  res.json({ fileUrl: `/uploads/${req.file.filename}`, fileName: req.file.originalname });
+});
+
+// Applications don't require login and only carry a phone number, so an
+// approved-applicant's own class access is matched by phone against their
+// account — same trust level as everything else here, not a hard identity
+// check. status === "done" is treated as "승인 완료".
+app.get("/api/my-applications", requireAuth, async (req, res) => {
+  const fields = await col("applyFields").find({}).sort({ order: 1 }).toArray();
+  const phoneField = fields.find((field) => field.type === "tel");
+  const myPhone = String(req.user.phone || "").replace(/\D/g, "");
+  const classes = await col("classes").find({}).toArray();
+  const all = await col("applications").find({}).sort({ createdAt: -1 }).toArray();
+  const mine = all
+    .filter((item) => {
+      if (!phoneField || !myPhone) return false;
+      return String(item.values?.[phoneField.id] || "").replace(/\D/g, "") === myPhone;
+    })
+    .map((item) => {
+      const cls = classes.find((entry) => entry.title === item.type);
+      const approved = item.status === "done" && cls;
+      return {
+        id: item.id,
+        type: item.type,
+        status: item.status,
+        createdAt: item.createdAt,
+        classAccess: approved ? { linkUrl: cls.linkUrl || "", fileUrl: cls.fileUrl || "", fileName: cls.fileName || "" } : null,
+      };
+    });
+  res.json(mine);
 });
 
 app.get("/api/tests", async (req, res) => {
@@ -484,13 +523,13 @@ app.patch("/api/admin/users/:email/role", requireAdmin, async (req, res) => {
 app.post("/api/admin/classes", requireAdmin, async (req, res) => {
   const item = classPayload(req.body);
   if (!item.title) return res.status(400).json({ error: "교육 제목을 입력해 주세요." });
-  await saveDoc(res, "classes", null, item, publicClass);
+  await saveDoc(res, "classes", null, item, (doc) => publicClass(doc, { includeSecret: true }));
 });
 
 app.put("/api/admin/classes/:id", requireAdmin, async (req, res) => {
   const item = classPayload(req.body, req.params.id);
   if (!item.title) return res.status(400).json({ error: "교육 제목을 입력해 주세요." });
-  await saveDoc(res, "classes", req.params.id, item, publicClass, "교육을 찾을 수 없습니다.");
+  await saveDoc(res, "classes", req.params.id, item, (doc) => publicClass(doc, { includeSecret: true }), "교육을 찾을 수 없습니다.");
 });
 
 app.delete("/api/admin/classes/:id", requireAdmin, async (req, res) => {
