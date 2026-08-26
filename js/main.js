@@ -911,7 +911,7 @@ function formatAdminDate(value) {
   const date = value ? new Date(value) : null;
   if (!date || Number.isNaN(date.getTime())) return "-";
   const pad = (num) => String(num).padStart(2, "0");
-  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}, ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function applyCount(status) {
@@ -1284,7 +1284,7 @@ function applyResultsListHtml() {
   return (
     list
       .map((item) => {
-        const summary = `${escapeHtml(item.type || "")} · ${escapeHtml(applyFieldsSummary(item))}${item.note ? ` · 메모: ${escapeHtml(item.note)}` : ""}`;
+        const summary = `${formatAdminDate(item.createdAt)} · ${escapeHtml(item.type || "")} · ${escapeHtml(applyFieldsSummary(item))}${item.note ? ` · 메모: ${escapeHtml(item.note)}` : ""}`;
         return adminItem(
           { title: applyDisplayName(item) },
           summary,
