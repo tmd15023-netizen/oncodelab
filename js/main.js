@@ -29,6 +29,7 @@ let adminNav = "overview";
 let editClassId = null;
 let editTestId = null;
 let editApplyId = null;
+let viewApplyId = null;
 let editNoticeId = null;
 let editPostId = null;
 let editFieldId = null;
@@ -1012,7 +1013,10 @@ function initAdmin() {
       adminTab = adminNav;
       if (adminTab !== "class") editClassId = null;
       if (adminTab !== "test") editTestId = null;
-      if (adminTab !== "apply") editApplyId = null;
+      if (adminTab !== "apply") {
+        editApplyId = null;
+        viewApplyId = null;
+      }
       if (adminTab !== "notice") editNoticeId = null;
       if (adminTab !== "community") editPostId = null;
       if (adminTab !== "fields") editFieldId = null;
@@ -1040,6 +1044,19 @@ function initAdmin() {
       adminTab = "apply";
       adminNav = "apply";
       editApplyId = editApply.dataset.editApply;
+      initAdmin();
+      return;
+    }
+    const viewApply = event.target.closest("[data-view-apply]");
+    if (viewApply && !event.target.closest("select, button")) {
+      adminTab = "apply";
+      adminNav = "apply";
+      viewApplyId = viewApply.dataset.viewApply;
+      initAdmin();
+      return;
+    }
+    if (event.target.closest("[data-apply-back]")) {
+      viewApplyId = null;
       initAdmin();
       return;
     }
@@ -1145,7 +1162,7 @@ function adminOverview() {
         .map((item) => {
           const meta = applyClassMeta(item);
           const status = item.status || "pending";
-          return `<tr data-edit-apply="${escapeHtml(item.id)}">
+          return `<tr data-view-apply="${escapeHtml(item.id)}" style="cursor:pointer">
             <td>
               <div class="dash-class">
                 <div class="dash-thumb ${meta.tone}">${escapeHtml(meta.label)}</div>
@@ -1155,7 +1172,7 @@ function adminOverview() {
                 </div>
               </div>
             </td>
-            <td>${formatAdminDate(item.createdAt)}<span class="dash-sub">${escapeHtml(item.id)}</span></td>
+            <td>${formatAdminDate(item.createdAt)}</td>
             <td>${escapeHtml(applyDisplayName(item))}</td>
             <td><span class="dash-status is-${escapeHtml(status)}">${applyStatus(status)}</span></td>
           </tr>`;
@@ -1285,14 +1302,38 @@ function applyResultsListHtml() {
     list
       .map((item) => {
         const summary = `${formatAdminDate(item.createdAt)} · ${escapeHtml(item.type || "")} · ${escapeHtml(applyFieldsSummary(item))}${item.note ? ` · 메모: ${escapeHtml(item.note)}` : ""}`;
-        return adminItem(
-          { title: applyDisplayName(item) },
-          summary,
-          `<div class="admin-item-actions"><select data-quick-status="${escapeHtml(item.id)}">${statusSelectOptions(item.status || "pending")}</select><button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button></div>`,
-        );
+        return `<div class="admin-item" data-view-apply="${escapeHtml(item.id)}" style="cursor:pointer">
+          <div><b>${escapeHtml(applyDisplayName(item))}</b><p>${summary}</p></div>
+          <div class="admin-item-actions">
+            <select data-quick-status="${escapeHtml(item.id)}">${statusSelectOptions(item.status || "pending")}</select>
+            <button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button>
+            <button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button>
+          </div>
+        </div>`;
       })
       .join("") || `<p class="sub">${applyCache.length ? "검색 결과가 없습니다." : "신청 내역이 없습니다."}</p>`
   );
+}
+
+function applyDetailHtml(item) {
+  const rows = applyFieldCache
+    .map((field) => {
+      const value = item.values?.[field.id];
+      return value ? `<p><b>${escapeHtml(field.label)}</b> ${escapeHtml(value)}</p>` : "";
+    })
+    .join("");
+  return `<div class="profile-card">
+    <p class="kicker">${formatAdminDate(item.createdAt)}</p>
+    <h2>${escapeHtml(applyDisplayName(item))}</h2>
+    <p class="sub">상태: ${applyStatus(item.status)}${item.type ? ` · 신청 교육: ${escapeHtml(item.type)}` : ""}</p>
+    <div class="doc-body">${rows || `<p class="sub">등록된 내용이 없습니다.</p>`}</div>
+    ${item.note ? `<p style="margin-top:16px"><b>상담 메모</b><br>${escapeHtml(item.note)}</p>` : ""}
+    <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-line" type="button" data-apply-back>목록으로</button>
+      <button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button>
+      <button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button>
+    </div>
+  </div>`;
 }
 
 function renderApplyResults() {
@@ -1302,6 +1343,10 @@ function renderApplyResults() {
 }
 
 function adminApplyPanel(editing) {
+  if (!editing) {
+    const viewed = applyCache.find((item) => item.id === viewApplyId);
+    if (viewed) return applyDetailHtml(viewed);
+  }
   const fieldInputs = applyFieldCache.map((field) => applyFieldInputHtml(field, editing?.values?.[field.id] || "")).join("");
   return `
     <div class="profile-card">
@@ -1596,6 +1641,7 @@ async function deleteAdminItem(kind, id, list) {
     if (kind === "classes" && editClassId === id) editClassId = null;
     if (kind === "tests" && editTestId === id) editTestId = null;
     if (kind === "applications" && editApplyId === id) editApplyId = null;
+    if (kind === "applications" && viewApplyId === id) viewApplyId = null;
     if (kind === "notices" && editNoticeId === id) editNoticeId = null;
     if (kind === "posts" && editPostId === id) editPostId = null;
     if (kind === "apply-fields" && editFieldId === id) editFieldId = null;
