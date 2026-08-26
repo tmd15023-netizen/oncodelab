@@ -1391,7 +1391,7 @@ function adminPostPanel(editing) {
     <div class="profile-card">
       <h2>${editing ? "커뮤니티 글 수정" : "커뮤니티 글 추가"}</h2>
       <form class="admin-form" id="post-form">
-        <input required name="tag" maxlength="8" placeholder="분류 (예: 후기, 질문, 공유)" value="${escapeHtml(editing?.tag || "후기")}" />
+        <select name="tag">${["정보", "후기", "FAQ", "질문", "공지"].map((tag) => `<option ${tag === (editing?.tag || "정보") ? "selected" : ""}>${tag}</option>`).join("")}</select>
         <input required name="title" placeholder="제목" value="${escapeHtml(editing?.title || "")}" />
         <textarea required name="body" rows="6" placeholder="내용">${escapeHtml(editing?.body || "")}</textarea>
         <div class="admin-form-actions">
