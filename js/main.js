@@ -35,6 +35,7 @@ let editFieldId = null;
 let applyFilter = { search: "", status: "all" };
 let communityTab = "info";
 let editPostState = null;
+let showQuestionForm = false;
 let blogReviewCache = [];
 let reviewSearch = "";
 let reviewPage = 1;
@@ -527,6 +528,12 @@ function renderReviewResults() {
   });
 }
 
+function questionToggleHtml() {
+  return `<div style="margin-bottom:20px">
+    <button class="btn btn-orange" type="button" data-toggle-question>${showQuestionForm ? "질문하기 닫기" : "질문하기"}</button>
+  </div>`;
+}
+
 function postWriteFormHtml() {
   return `<div class="profile-card" style="margin-bottom:20px">
     <h2>질문하기</h2>
@@ -595,6 +602,7 @@ async function submitNewPost(event) {
   try {
     const created = await api("/api/posts", { method: "POST", body: JSON.stringify(data) });
     postCache = [created, ...postCache];
+    showQuestionForm = false;
     initCommunity();
   } catch (error) {
     window.alert(error.message);
@@ -668,14 +676,19 @@ function initCommunity() {
       }
     } else {
       editPostState = null;
-      box.innerHTML = tabsHtml + postWriteFormHtml() + postListHtml();
+      box.innerHTML = tabsHtml + questionToggleHtml() + (showQuestionForm ? postWriteFormHtml() : "") + postListHtml();
       box.querySelector("#post-write-form")?.addEventListener("submit", submitNewPost);
+      box.querySelector("[data-toggle-question]")?.addEventListener("click", () => {
+        showQuestionForm = !showQuestionForm;
+        initCommunity();
+      });
     }
   }
 
   box.querySelectorAll("[data-community-tab]").forEach((btn) => {
     btn.addEventListener("click", () => {
       communityTab = btn.dataset.communityTab;
+      showQuestionForm = false;
       history.replaceState(null, "", "community");
       initCommunity();
     });
