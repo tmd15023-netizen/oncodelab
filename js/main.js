@@ -1504,7 +1504,7 @@ function initTests() {
                 ${content.linkUrl ? `<p><a class="btn btn-orange" href="${escapeHtml(content.linkUrl)}" target="_blank" rel="noopener" ${admin ? "" : `data-start-test="${escapeHtml(item.id)}"`}>TEST 시작하기</a></p>` : ""}
                 ${content.fileUrl ? `<p><a class="btn btn-line" href="${escapeHtml(API + content.fileUrl)}" target="_blank" rel="noopener" ${admin ? "" : `data-start-test="${escapeHtml(item.id)}"`}>${escapeHtml(content.fileName || "첨부 파일")} 다운로드</a></p>` : ""}
                 ${hasContent ? "" : `<p class="sub">등록된 내용이 없습니다.</p>`}
-              </div>${admin ? `<p class="test-note">관리자 계정으로 열려 있습니다.</p>` : `<button class="btn btn-line lock-again" type="button" data-lock="${escapeHtml(item.id)}">다시 잠그기</button>`}`
+              </div>${admin ? `<p class="test-note">관리자 계정으로 열려 있습니다.</p>` : ""}`
             : `<form class="unlock-form" data-unlock="${escapeHtml(item.id)}"><input type="password" name="code" placeholder="수업에서 받은 비밀번호" autocomplete="off" /><button class="btn btn-green" type="submit">잠금 해제</button><p class="unlock-error" hidden>비밀번호가 올바르지 않습니다.</p></form>`
         }
       </article>`;
@@ -1526,9 +1526,6 @@ function initTests() {
         form.querySelector(".unlock-error").hidden = false;
       }
     });
-  });
-  box.querySelectorAll("[data-lock]").forEach((btn) => {
-    btn.addEventListener("click", () => lockTest(btn.dataset.lock));
   });
   box.querySelectorAll("[data-start-test]").forEach((link) => {
     link.addEventListener("click", () => {
