@@ -290,14 +290,47 @@ function fillInquiryOptions() {
 }
 
 function initClassSelection() {
-  const input = document.getElementById("class-type-input");
-  const notice = document.getElementById("selected-class-notice");
-  if (!input || !notice) return;
+  const box = document.getElementById("class-apply-box");
+  if (!box) return;
   const classTitle = new URLSearchParams(location.search).get("classTitle") || "";
-  input.value = classTitle;
-  notice.innerHTML = classTitle
-    ? `<p class="sub" style="margin-bottom:16px"><b>${escapeHtml(classTitle)}</b> 강좌에 신청합니다.</p>`
-    : "";
+  const me = getSession();
+  if (!me) {
+    box.innerHTML = noticeCard("로그인이 필요합니다", "Class 신청은 로그인 후 이용할 수 있습니다.", `<p><a class="btn btn-orange" href="#" data-auth="login">로그인</a></p>`);
+    box.querySelector("[data-auth='login']")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      openAuth("login");
+    });
+    return;
+  }
+  if (!classTitle) {
+    box.innerHTML = `<p class="sub">신청할 강좌를 <a href="class">Class 목록</a>에서 선택해 주세요.</p>`;
+    return;
+  }
+  box.innerHTML = `
+    <p class="sub" style="margin-bottom:16px"><b>${escapeHtml(classTitle)}</b> 강좌에 신청합니다.</p>
+    <button class="btn btn-orange" type="button" id="class-apply-btn">신청하기</button>
+  `;
+  document.getElementById("class-apply-btn")?.addEventListener("click", () => submitClassApply(classTitle));
+}
+
+async function submitClassApply(classTitle) {
+  const me = getSession();
+  if (!me || !classTitle) return;
+  const body = { kind: "class", type: classTitle };
+  applyFieldCache.forEach((field, idx) => {
+    if (field.type === "tel") body[field.id] = me.phone || "";
+    else if (idx === 0) body[field.id] = me.name || "";
+  });
+  try {
+    await api("/api/applications", { method: "POST", body: JSON.stringify(body) });
+    const box = document.getElementById("class-apply-box");
+    if (box) box.style.display = "none";
+    const title = document.getElementById("success-title");
+    if (title) title.textContent = `「${classTitle}」 신청이 완료되었습니다.`;
+    document.getElementById("success")?.classList.add("show");
+  } catch (error) {
+    window.alert(error.message);
+  }
 }
 
 async function submitInquiry(event) {
