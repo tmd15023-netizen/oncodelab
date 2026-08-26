@@ -474,15 +474,15 @@ function renderReviewResults() {
 
 function postWriteFormHtml() {
   return `<div class="profile-card" style="margin-bottom:20px">
-    <h2>글쓰기</h2>
-    <p class="sub">비밀번호를 입력해 두면 나중에 직접 수정·삭제할 수 있어요.</p>
-    <form class="form" id="post-write-form" style="margin-top:16px">
+    <h2>질문하기</h2>
+    <p class="sub">교육이나 수업이 궁금하신 점을 남겨주시면 답변해 드릴게요. 비밀번호를 입력해 두면 나중에 직접 수정·삭제할 수 있어요.</p>
+    <form class="form" id="post-write-form" style="margin-top:16px" autocomplete="off">
       <div class="admin-form-row">
-        <input required name="name" placeholder="이름" maxlength="20" />
-        <input required type="password" name="password" placeholder="비밀번호 (4자 이상)" minlength="4" />
+        <input required name="name" placeholder="이름" maxlength="20" autocomplete="off" />
+        <input required type="password" name="password" placeholder="비밀번호 (4자 이상)" minlength="4" autocomplete="new-password" />
       </div>
-      <input required name="title" placeholder="제목" />
-      <textarea required name="body" rows="5" placeholder="내용을 입력해 주세요"></textarea>
+      <input required name="title" placeholder="제목" autocomplete="off" />
+      <textarea required name="body" rows="5" placeholder="궁금하신 내용을 입력해 주세요"></textarea>
       <button class="btn btn-orange" type="submit">등록하기</button>
     </form>
   </div>`;
@@ -493,7 +493,7 @@ function postListHtml() {
   return `<div class="board">${postCache
     .map(
       (item) =>
-        `<a href="community?id=${encodeURIComponent(item.id)}"><em>${escapeHtml(item.tag || "정보")}</em><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.name || "")} · ${formatBoardDate(item.createdAt)}</span></a>`,
+        `<a href="community?id=${encodeURIComponent(item.id)}"><em>${escapeHtml(item.tag || "질문")}</em><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.name || "")} · ${formatBoardDate(item.createdAt)}</span></a>`,
     )
     .join("")}</div>`;
 }
@@ -503,7 +503,7 @@ function postDetailHtml(item) {
     return `<div class="profile-card"><h2>글을 찾을 수 없습니다.</h2><p style="margin-top:18px"><a class="btn btn-line" href="community">목록으로</a></p></div>`;
   }
   return `<div class="profile-card">
-    <p class="kicker">${escapeHtml(item.tag || "정보")}</p>
+    <p class="kicker">${escapeHtml(item.tag || "질문")}</p>
     <h2>${escapeHtml(item.title)}</h2>
     <p class="sub">${escapeHtml(item.name || "")} · ${formatBoardDate(item.createdAt)}</p>
     <div class="doc-body">${escapeHtml(item.body || "")}</div>
@@ -518,10 +518,10 @@ function postDetailHtml(item) {
 function postEditFormHtml(item) {
   return `<div class="profile-card">
     <h2>글 수정</h2>
-    <form class="form" id="post-edit-form" style="margin-top:16px">
+    <form class="form" id="post-edit-form" style="margin-top:16px" autocomplete="off">
       <div class="admin-form-row">
-        <input required name="name" placeholder="이름" maxlength="20" value="${escapeHtml(item.name || "")}" />
-        ${isAdmin() ? "" : `<input required type="password" name="password" placeholder="비밀번호" />`}
+        <input required name="name" placeholder="이름" maxlength="20" value="${escapeHtml(item.name || "")}" autocomplete="off" />
+        ${isAdmin() ? "" : `<input required type="password" name="password" placeholder="비밀번호" autocomplete="current-password" />`}
       </div>
       <input required name="title" placeholder="제목" value="${escapeHtml(item.title)}" />
       <textarea required name="body" rows="5" placeholder="내용">${escapeHtml(item.body || "")}</textarea>

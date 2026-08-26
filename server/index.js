@@ -127,7 +127,7 @@ function noticePayload(body, id) {
 function postPayload(body, id, existing) {
   return {
     id: id || String(body.id || makeId("post")),
-    tag: String(body.tag || existing?.tag || "정보").trim(),
+    tag: String(body.tag || existing?.tag || "질문").trim(),
     name: String(body.name || existing?.name || "").trim(),
     title: String(body.title || "").trim(),
     body: String(body.body || "").trim(),
@@ -264,7 +264,7 @@ app.post("/api/posts", async (req, res) => {
   }
   const item = {
     id: makeId("post"),
-    tag: String(req.body.tag || "정보").trim(),
+    tag: String(req.body.tag || "질문").trim(),
     name,
     title,
     body,
