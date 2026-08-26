@@ -71,6 +71,11 @@ img { max-width: 100%; display: block; }
   opacity: 1;
   text-shadow: 0 1px 2px rgba(15, 36, 59, .28);
 }
+.topbar-brand {
+  font-size: clamp(20px, 4vw, 28px);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
 .topbar-contact { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 .topbar-line { display: inline-flex; align-items: center; gap: 10px; }
 .topbar-note { font-size: 12px; font-weight: 500; opacity: .85; }
