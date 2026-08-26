@@ -48,7 +48,13 @@ export function getDb() {
   return db;
 }
 
+// Runs once ever, not once per cold start: without the _meta flag, deleting every
+// row in e.g. "posts" down to zero would make the next serverless cold start see
+// countDocuments() === 0 and silently re-insert the sample defaults, undoing an
+// admin's intentional "delete all" every time the function restarts.
 async function seedIfEmpty() {
+  const meta = await db.collection("_meta").findOne({ _id: "seed" });
+  if (meta?.done) return;
   const [classes, tests, notices, posts, applyFields] = await Promise.all([
     db.collection("classes").countDocuments(),
     db.collection("tests").countDocuments(),
@@ -63,6 +69,7 @@ async function seedIfEmpty() {
     posts === 0 ? db.collection("posts").insertMany(DEFAULT_POSTS) : null,
     applyFields === 0 ? db.collection("applyFields").insertMany(DEFAULT_APPLY_FIELDS) : null,
   ]);
+  await db.collection("_meta").updateOne({ _id: "seed" }, { $set: { done: true, at: new Date() } }, { upsert: true });
 }
 
 export function publicUser(user) {
