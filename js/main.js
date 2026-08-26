@@ -1096,6 +1096,13 @@ function initAdmin() {
       initAdmin();
       return;
     }
+    const quickApprove = event.target.closest("[data-quick-approve]");
+    if (quickApprove) {
+      const id = quickApprove.dataset.quickApprove;
+      const item = applyCache.find((entry) => entry.id === id);
+      quickUpdateApplyStatus(id, item?.status === "done" ? "pending" : "done");
+      return;
+    }
     const viewApply = event.target.closest("[data-view-apply]");
     if (viewApply && !event.target.closest("select, button")) {
       adminTab = "apply";
@@ -1189,9 +1196,6 @@ function initAdmin() {
   box.querySelector("#notice-form")?.addEventListener("submit", (event) => saveAdminNotice(event));
   box.querySelector("#post-form")?.addEventListener("submit", (event) => saveAdminPost(event));
   box.querySelector("#field-form")?.addEventListener("submit", (event) => saveAdminField(event));
-  box.querySelectorAll("[data-quick-status]").forEach((select) => {
-    select.addEventListener("change", () => quickUpdateApplyStatus(select.dataset.quickStatus, select.value));
-  });
   box.querySelector("#apply-search")?.addEventListener("input", (event) => {
     applyFilter.search = event.target.value;
     const cursor = event.target.selectionStart;
@@ -1360,10 +1364,11 @@ function applyResultsListHtml() {
     list
       .map((item) => {
         const summary = `${formatAdminDate(item.createdAt)} · ${escapeHtml(item.type || "")} · ${escapeHtml(applyFieldsSummary(item))}${item.note ? ` · 메모: ${escapeHtml(item.note)}` : ""}`;
+        const approved = item.status === "done";
         return `<div class="admin-item" data-view-apply="${escapeHtml(item.id)}" style="cursor:pointer">
           <div><b>${escapeHtml(applyDisplayName(item))}</b><p>${summary}</p></div>
           <div class="admin-item-actions">
-            <select data-quick-status="${escapeHtml(item.id)}">${statusSelectOptions(item.status || "pending")}</select>
+            <button class="btn ${approved ? "btn-green" : "btn-line"}" type="button" data-quick-approve="${escapeHtml(item.id)}">${approved ? "승인됨" : "승인"}</button>
             <button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button>
             <button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button>
           </div>
@@ -1405,24 +1410,25 @@ function adminApplyPanel(editing) {
     const viewed = applyCache.find((item) => item.id === viewApplyId);
     if (viewed) return applyDetailHtml(viewed);
   }
-  const fieldInputs = applyFieldCache.map((field) => applyFieldInputHtml(field, editing?.values?.[field.id] || "")).join("");
-  return `
-    <div class="profile-card">
-      <h2>${editing ? "수업 신청 수정" : "수업 신청 추가"}</h2>
-      <p class="sub">보통은 방문자가 수업 신청 페이지에서 직접 신청하면 자동으로 아래 목록에 쌓입니다. 이 폼은 전화·방문 상담처럼 관리자가 대신 등록할 때만 사용하세요.</p>
+  const formBlock = editing
+    ? `<div class="profile-card">
+      <h2>수업 신청 수정</h2>
       <form class="admin-form" id="apply-form">
-        ${fieldInputs}
+        ${applyFieldCache.map((field) => applyFieldInputHtml(field, editing?.values?.[field.id] || "")).join("")}
         <div class="admin-form-row">
           <select name="type">${classOptions(editing?.type)}</select>
           <select name="status">${statusSelectOptions(editing?.status || "pending")}</select>
         </div>
         <textarea name="note" rows="3" placeholder="상담 메모 (관리자만 보는 내부 메모)">${escapeHtml(editing?.note || "")}</textarea>
         <div class="admin-form-actions">
-          <button class="btn btn-green" type="submit">${editing ? "수정 저장" : "신청 추가"}</button>
-          ${editing ? `<button class="btn btn-line" type="button" data-cancel-apply>취소</button>` : ""}
+          <button class="btn btn-green" type="submit">수정 저장</button>
+          <button class="btn btn-line" type="button" data-cancel-apply>취소</button>
         </div>
       </form>
-    </div>
+    </div>`
+    : "";
+  return `
+    ${formBlock}
     <div class="profile-card" style="margin-top:20px">
       <h2>수업 신청 내역</h2>
       <input type="text" id="apply-search" placeholder="이름·연락처·메모 검색" value="${escapeHtml(applyFilter.search)}" style="width:100%;margin-top:12px" />
