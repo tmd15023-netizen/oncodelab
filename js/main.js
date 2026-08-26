@@ -1,4 +1,22 @@
 const API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "http://127.0.0.1:3000" : "";
+
+(function showPageLoading() {
+  const overlay = document.createElement("div");
+  overlay.id = "page-loading";
+  overlay.className = "page-loading";
+  overlay.innerHTML = `<div class="page-loading-spinner"></div>`;
+  document.body.appendChild(overlay);
+  // Safety net: never let the overlay block the page for more than a few seconds,
+  // even if something upstream hangs unexpectedly.
+  setTimeout(() => overlay.remove(), 8000);
+})();
+
+function hidePageLoading() {
+  const overlay = document.getElementById("page-loading");
+  if (!overlay) return;
+  overlay.classList.add("hide");
+  setTimeout(() => overlay.remove(), 250);
+}
 let classCache = [];
 let testCache = [];
 let userCache = [];
@@ -85,19 +103,24 @@ async function api(path, options = {}) {
 }
 
 async function loadSiteData() {
-  try {
-    classCache = await api("/api/classes");
-    testCache = await api("/api/tests");
-    noticeCache = await api("/api/notices");
-    postCache = await api("/api/posts");
-    applyFieldCache = await api("/api/apply-fields");
-    if (isAdmin()) {
-      userCache = await api("/api/admin/users");
-      applyCache = await api("/api/admin/applications");
-    }
-  } catch (error) {
-    console.warn(error.message);
-  }
+  const safe = (promise) => promise.catch((error) => { console.warn(error.message); return null; });
+  const admin = isAdmin();
+  const [classes, tests, notices, posts, applyFields, users, applications] = await Promise.all([
+    safe(api("/api/classes")),
+    safe(api("/api/tests")),
+    safe(api("/api/notices")),
+    safe(api("/api/posts")),
+    safe(api("/api/apply-fields")),
+    admin ? safe(api("/api/admin/users")) : Promise.resolve(null),
+    admin ? safe(api("/api/admin/applications")) : Promise.resolve(null),
+  ]);
+  if (classes) classCache = classes;
+  if (tests) testCache = tests;
+  if (notices) noticeCache = notices;
+  if (posts) postCache = posts;
+  if (applyFields) applyFieldCache = applyFields;
+  if (users) userCache = users;
+  if (applications) applyCache = applications;
 }
 
 // Intentionally in-memory (not sessionStorage): a TEST should require its
@@ -1589,18 +1612,22 @@ function setupLivePolling() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  renderCourses();
-  setupAuth();
-  setupCounselButton();
-  await loadSiteData();
-  renderClassPage();
-  fillInquiryOptions();
-  renderApplyFields();
-  initMypage();
-  initAdmin();
-  initTests();
-  initNotices();
-  loadBlogReviews().then(initCommunity);
-  initCommunity();
-  setupLivePolling();
+  try {
+    renderCourses();
+    setupAuth();
+    setupCounselButton();
+    await loadSiteData();
+    renderClassPage();
+    fillInquiryOptions();
+    renderApplyFields();
+    initMypage();
+    initAdmin();
+    initTests();
+    initNotices();
+    loadBlogReviews().then(initCommunity);
+    initCommunity();
+    setupLivePolling();
+  } finally {
+    hidePageLoading();
+  }
 });
