@@ -15,6 +15,7 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 app.use(cors());
 app.use(express.json());
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use(async (_req, res, next) => {
   try {
     await connectDb();
@@ -266,8 +267,6 @@ async function fetchBlogReviews() {
   blogReviewCache.at = Date.now();
   return blogReviewCache.data;
 }
-
-app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 app.get("/api/blog-reviews", async (_req, res) => {
   res.json(await fetchBlogReviews());

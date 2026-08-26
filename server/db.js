@@ -26,14 +26,19 @@ export async function connectDb() {
   if (db) return db;
   await client.connect();
   db = client.db("oncodelab");
-  await db.collection("users").createIndex({ email: 1 }, { unique: true });
-  await db.collection("classes").createIndex({ id: 1 }, { unique: true });
-  await db.collection("tests").createIndex({ id: 1 }, { unique: true });
-  await db.collection("sessions").createIndex({ token: 1 }, { unique: true });
-  await db.collection("applications").createIndex({ id: 1 }, { unique: true });
-  await db.collection("notices").createIndex({ id: 1 }, { unique: true });
-  await db.collection("posts").createIndex({ id: 1 }, { unique: true });
-  await db.collection("applyFields").createIndex({ id: 1 }, { unique: true });
+  // Run index creation (idempotent) and the seed check in parallel batches
+  // instead of 13 sequential round-trips — on a cold serverless start this
+  // was the single biggest source of added latency per request.
+  await Promise.all([
+    db.collection("users").createIndex({ email: 1 }, { unique: true }),
+    db.collection("classes").createIndex({ id: 1 }, { unique: true }),
+    db.collection("tests").createIndex({ id: 1 }, { unique: true }),
+    db.collection("sessions").createIndex({ token: 1 }, { unique: true }),
+    db.collection("applications").createIndex({ id: 1 }, { unique: true }),
+    db.collection("notices").createIndex({ id: 1 }, { unique: true }),
+    db.collection("posts").createIndex({ id: 1 }, { unique: true }),
+    db.collection("applyFields").createIndex({ id: 1 }, { unique: true }),
+  ]);
   await seedIfEmpty();
   return db;
 }
@@ -44,21 +49,20 @@ export function getDb() {
 }
 
 async function seedIfEmpty() {
-  if ((await db.collection("classes").countDocuments()) === 0) {
-    await db.collection("classes").insertMany(DEFAULT_CLASSES);
-  }
-  if ((await db.collection("tests").countDocuments()) === 0) {
-    await db.collection("tests").insertMany(DEFAULT_TESTS);
-  }
-  if ((await db.collection("notices").countDocuments()) === 0) {
-    await db.collection("notices").insertMany(DEFAULT_NOTICES);
-  }
-  if ((await db.collection("posts").countDocuments()) === 0) {
-    await db.collection("posts").insertMany(DEFAULT_POSTS);
-  }
-  if ((await db.collection("applyFields").countDocuments()) === 0) {
-    await db.collection("applyFields").insertMany(DEFAULT_APPLY_FIELDS);
-  }
+  const [classes, tests, notices, posts, applyFields] = await Promise.all([
+    db.collection("classes").countDocuments(),
+    db.collection("tests").countDocuments(),
+    db.collection("notices").countDocuments(),
+    db.collection("posts").countDocuments(),
+    db.collection("applyFields").countDocuments(),
+  ]);
+  await Promise.all([
+    classes === 0 ? db.collection("classes").insertMany(DEFAULT_CLASSES) : null,
+    tests === 0 ? db.collection("tests").insertMany(DEFAULT_TESTS) : null,
+    notices === 0 ? db.collection("notices").insertMany(DEFAULT_NOTICES) : null,
+    posts === 0 ? db.collection("posts").insertMany(DEFAULT_POSTS) : null,
+    applyFields === 0 ? db.collection("applyFields").insertMany(DEFAULT_APPLY_FIELDS) : null,
+  ]);
 }
 
 export function publicUser(user) {
