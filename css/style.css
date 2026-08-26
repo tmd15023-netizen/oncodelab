@@ -407,6 +407,28 @@ h3 { font-size: 22px; }
 .time-item b { color: var(--green); }
 
 .form { display: grid; gap: 12px; margin-top: 28px; }
+#apply-fields { display: grid; gap: 12px; }
+.privacy-box {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.privacy-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 700;
+}
+.privacy-agree input { width: auto; margin-top: 3px; }
 .form input, .form select, .form textarea {
   width: 100%;
   border: 1px solid var(--line);
