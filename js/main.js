@@ -24,6 +24,7 @@ let applyCache = [];
 let noticeCache = [];
 let postCache = [];
 let applyFieldCache = [];
+let myApplyAccess = {};
 let adminTab = "overview";
 let adminNav = "overview";
 let editClassId = null;
@@ -106,7 +107,8 @@ async function api(path, options = {}) {
 async function loadSiteData() {
   const safe = (promise) => promise.catch((error) => { console.warn(error.message); return null; });
   const admin = isAdmin();
-  const [classes, tests, notices, posts, applyFields, users, applications] = await Promise.all([
+  const loggedIn = Boolean(getSession());
+  const [classes, tests, notices, posts, applyFields, users, applications, myApplications] = await Promise.all([
     safe(api("/api/classes")),
     safe(api("/api/tests")),
     safe(api("/api/notices")),
@@ -114,6 +116,7 @@ async function loadSiteData() {
     safe(api("/api/apply-fields")),
     admin ? safe(api("/api/admin/users")) : Promise.resolve(null),
     admin ? safe(api("/api/admin/applications")) : Promise.resolve(null),
+    loggedIn ? safe(api("/api/my-applications")) : Promise.resolve(null),
   ]);
   if (classes) classCache = classes;
   if (tests) testCache = tests;
@@ -122,6 +125,12 @@ async function loadSiteData() {
   if (applyFields) applyFieldCache = applyFields;
   if (users) userCache = users;
   if (applications) applyCache = applications;
+  myApplyAccess = {};
+  if (myApplications) {
+    for (const item of myApplications) {
+      if (item.classAccess) myApplyAccess[item.type] = item.classAccess;
+    }
+  }
 }
 
 // Intentionally in-memory (not sessionStorage): a TEST should require its
@@ -196,18 +205,22 @@ function renderClassPage() {
   }
   box.classList.add("cards");
   box.innerHTML = classCache
-    .map(
-      (item) => `
+    .map((item) => {
+      const access = myApplyAccess[item.title];
+      const actionHtml = access
+        ? `<a class="btn btn-orange" href="${escapeHtml(access.linkUrl || (access.fileUrl ? API + access.fileUrl : "#"))}" target="_blank" rel="noopener">수강하기</a>`
+        : `<a class="btn btn-orange" href="contact?classTitle=${encodeURIComponent(item.title)}">신청하기</a>`;
+      return `
       <article class="card">
         <div class="thumb ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</div>
         <div class="card-body">
           <small>${escapeHtml(item.status || "온라인 · 진행중")}</small>
           <h3>${escapeHtml(item.title)}</h3>
           <p>${escapeHtml(item.summary || "")}</p>
-          <a class="btn btn-orange" href="contact?classTitle=${encodeURIComponent(item.title)}">신청하기</a>
+          ${actionHtml}
         </div>
-      </article>`,
-    )
+      </article>`;
+    })
     .join("");
 }
 
