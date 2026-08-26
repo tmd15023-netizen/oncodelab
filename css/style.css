@@ -409,7 +409,7 @@ h3 { font-size: 22px; }
 .card:has(.thumb.off) { border-color: #ff7a45; }
 .card:has(.thumb.free) { border-color: #8b95a1; }
 #class-list.cards .card,
-#class-list .card { border-color: #111; }
+#class-list .card { border-color: #111; border-width: 1px; border-radius: 0; }
 #class-list .card-body .btn { background: #333; color: #fff; }
 .thumb {
   display: inline-flex;
