@@ -299,6 +299,10 @@ async function submitInquiry(event) {
   try {
     await api("/api/applications", { method: "POST", body: JSON.stringify(data) });
     form.style.display = "none";
+    const title = document.getElementById("success-title");
+    if (title) {
+      title.textContent = data.type ? `「${data.type}」 신청이 완료되었습니다.` : "신청이 완료되었습니다.";
+    }
     document.getElementById("success")?.classList.add("show");
   } catch (error) {
     window.alert(error.message);
