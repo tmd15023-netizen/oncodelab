@@ -367,7 +367,7 @@ async function submitClassInquiry(event) {
     if (box) box.style.display = "none";
     const success = document.getElementById("success");
     if (success) {
-      success.innerHTML = `<p><b>신청해주신 교육문의/상담이 접수되었습니다.</b><br /><span style="font-weight:500">담당자가 내용 확인 후 빠르게 연락드리겠습니다.</span><br />궁금하신 점은 언제든 문의해 주세요.<br />감사합니다.</p>`;
+      success.innerHTML = `<p><b>신청해주신 교육신청/문의가 접수되었습니다.</b><br /><span style="font-weight:500">담당자가 내용 확인 후 빠르게 연락드리겠습니다.</span><br />궁금하신 점은 언제든 문의해 주세요.<br />감사합니다.</p>`;
       success.classList.add("show");
     }
   } catch (error) {
