@@ -300,6 +300,8 @@ function initClassSelection() {
   const box = document.getElementById("class-apply-box");
   if (!box) return;
   const classTitle = new URLSearchParams(location.search).get("classTitle") || "";
+  const heading = document.getElementById("contact-heading");
+  if (heading) heading.textContent = classTitle ? "Class 신청" : "교육신청/문의";
   if (classTitle) renderClassAttendanceApply(box, classTitle);
   else renderClassInquiryForm(box);
 }
@@ -335,9 +337,11 @@ async function submitClassApply(classTitle) {
     await api("/api/applications", { method: "POST", body: JSON.stringify(body) });
     const box = document.getElementById("class-apply-box");
     if (box) box.style.display = "none";
-    const title = document.getElementById("success-title");
-    if (title) title.textContent = `「${classTitle}」 신청이 완료되었습니다.`;
-    document.getElementById("success")?.classList.add("show");
+    const success = document.getElementById("success");
+    if (success) {
+      success.innerHTML = `<p><b>「${escapeHtml(classTitle)}」 신청이 완료되었습니다.</b><br /><span style="font-weight:500">새로운 배움의 시작을 온코드랩이 함께하겠습니다.</span><br />관리자 승인 후 교육이 시작되며, 승인 완료 시 별도로 안내드립니다.</p>`;
+      success.classList.add("show");
+    }
   } catch (error) {
     window.alert(error.message);
   }
@@ -361,9 +365,11 @@ async function submitClassInquiry(event) {
     await api("/api/applications", { method: "POST", body: JSON.stringify(body) });
     const box = document.getElementById("class-apply-box");
     if (box) box.style.display = "none";
-    const title = document.getElementById("success-title");
-    if (title) title.textContent = "신청이 완료되었습니다.";
-    document.getElementById("success")?.classList.add("show");
+    const success = document.getElementById("success");
+    if (success) {
+      success.innerHTML = `<p><b>신청해주신 교육문의/상담이 접수되었습니다.</b><br /><span style="font-weight:500">담당자가 내용 확인 후 빠르게 연락드리겠습니다.</span><br />궁금하신 점은 언제든 문의해 주세요.<br />감사합니다.</p>`;
+      success.classList.add("show");
+    }
   } catch (error) {
     window.alert(error.message);
   }
