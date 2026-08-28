@@ -290,15 +290,18 @@ function fillInquiryOptions() {
   ].join("");
 }
 
-// 이름/연락처/이메일은 로그인 계정 정보로 자동 채워지므로 폼에 다시 물어보지 않는다.
-function isAutoFillableApplyField(field, idx) {
-  return field.type === "tel" || field.type === "email" || idx === 0;
-}
-
+// contact.html은 두 가지 서로 다른 신청을 같은 화면에서 처리한다.
+// 1) Class 카드의 "신청하기"(?classTitle=...) - 이미 개설된 강좌를 수강 신청하는 것. 로그인 필요, 원클릭.
+// 2) 상단 주황색 "수업 신청" 버튼(classTitle 없음) - 아직 없는 교육을 만들어달라는 의뢰/문의. 로그인 불필요, 직접 입력.
 function initClassSelection() {
   const box = document.getElementById("class-apply-box");
   if (!box) return;
   const classTitle = new URLSearchParams(location.search).get("classTitle") || "";
+  if (classTitle) renderClassAttendanceApply(box, classTitle);
+  else renderClassInquiryForm(box);
+}
+
+function renderClassAttendanceApply(box, classTitle) {
   const me = getSession();
   if (!me) {
     box.innerHTML = noticeCard("로그인이 필요합니다", "Class 신청은 로그인 후 이용할 수 있습니다.", `<p><a class="btn btn-orange" href="#" data-auth="login">로그인</a></p>`);
@@ -308,32 +311,22 @@ function initClassSelection() {
     });
     return;
   }
-  if (!classTitle) {
-    box.innerHTML = `<p class="sub">신청할 강좌를 <a href="class">Class 목록</a>에서 선택해 주세요.</p>`;
-    return;
-  }
-  const visibleFields = applyFieldCache.filter((field, idx) => !isAutoFillableApplyField(field, idx));
   box.innerHTML = `
     <p class="sub" style="margin-bottom:16px"><b>${escapeHtml(classTitle)}</b> 강좌에 신청합니다.</p>
-    <form class="form" id="class-apply-form">
-      ${visibleFields.map((field) => applyFieldInputHtml(field)).join("")}
-      <button class="btn btn-orange" type="submit">신청하기</button>
-    </form>
+    <button class="btn btn-orange" type="button" id="class-apply-btn">신청하기</button>
   `;
-  document.getElementById("class-apply-form")?.addEventListener("submit", (event) => submitClassApply(event, classTitle));
+  document.getElementById("class-apply-btn")?.addEventListener("click", () => submitClassApply(classTitle));
 }
 
-async function submitClassApply(event, classTitle) {
-  event.preventDefault();
+async function submitClassApply(classTitle) {
   const me = getSession();
   if (!me || !classTitle) return;
-  const entered = Object.fromEntries(new FormData(event.target));
-  const body = { kind: "class", type: classTitle, ...entered };
+  const body = { kind: "class", type: classTitle };
   applyFieldCache.forEach((field, idx) => {
-    if (!isAutoFillableApplyField(field, idx)) return;
     if (field.type === "tel") body[field.id] = me.phone || "";
     else if (field.type === "email") body[field.id] = me.email || "";
-    else body[field.id] = me.name || "";
+    else if (idx === 0) body[field.id] = me.name || "";
+    else if (field.required) body[field.id] = `「${classTitle}」 강좌 수강 신청`; // 수업 의뢰용 필수 항목은 강좌 신청에는 해당 없으므로 자동 채움
   });
   try {
     await api("/api/applications", { method: "POST", body: JSON.stringify(body) });
@@ -341,6 +334,32 @@ async function submitClassApply(event, classTitle) {
     if (box) box.style.display = "none";
     const title = document.getElementById("success-title");
     if (title) title.textContent = `「${classTitle}」 신청이 완료되었습니다.`;
+    document.getElementById("success")?.classList.add("show");
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+function renderClassInquiryForm(box) {
+  box.innerHTML = `
+    <p class="sub" style="margin-bottom:16px">원하시는 교육을 요청해 주시면 확인 후 안내드리겠습니다.</p>
+    <form class="form" id="class-inquiry-form">
+      ${applyFieldCache.map((field) => applyFieldInputHtml(field)).join("")}
+      <button class="btn btn-orange" type="submit">신청하기</button>
+    </form>
+  `;
+  document.getElementById("class-inquiry-form")?.addEventListener("submit", (event) => submitClassInquiry(event));
+}
+
+async function submitClassInquiry(event) {
+  event.preventDefault();
+  const body = { kind: "class", type: "수업 의뢰", ...Object.fromEntries(new FormData(event.target)) };
+  try {
+    await api("/api/applications", { method: "POST", body: JSON.stringify(body) });
+    const box = document.getElementById("class-apply-box");
+    if (box) box.style.display = "none";
+    const title = document.getElementById("success-title");
+    if (title) title.textContent = "신청이 완료되었습니다.";
     document.getElementById("success")?.classList.add("show");
   } catch (error) {
     window.alert(error.message);
