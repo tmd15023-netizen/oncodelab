@@ -459,6 +459,8 @@ h3 { font-size: 22px; }
 
 .form { display: grid; gap: 12px; margin-top: 28px; }
 #apply-fields { display: grid; gap: 12px; }
+.apply-field-label { display: block; font-size: 14px; font-weight: 600; color: var(--navy); margin-bottom: 6px; }
+.required-star { color: #e6483c; margin-left: 3px; }
 .privacy-box {
   border: 1px solid var(--line);
   border-radius: 14px;

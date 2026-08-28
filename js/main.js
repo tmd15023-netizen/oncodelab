@@ -242,15 +242,18 @@ function fieldTypeOptions(selected) {
 
 function applyFieldInputHtml(field, value = "") {
   const common = `name="${escapeHtml(field.id)}" ${field.required ? "required" : ""}`;
+  const label = `<label class="apply-field-label">${escapeHtml(field.label)}${field.required ? '<span class="required-star">*</span>' : ""}</label>`;
+  let input;
   if (field.type === "textarea") {
-    return `<textarea ${common} rows="4" placeholder="${escapeHtml(field.label)}">${escapeHtml(value)}</textarea>`;
-  }
-  if (field.type === "select") {
+    input = `<textarea ${common} rows="4" placeholder="${escapeHtml(field.label)}">${escapeHtml(value)}</textarea>`;
+  } else if (field.type === "select") {
     const opts = (field.options || []).map((opt) => `<option ${opt === value ? "selected" : ""}>${escapeHtml(opt)}</option>`).join("");
-    return `<select ${common}><option value="">${escapeHtml(field.label)} 선택</option>${opts}</select>`;
+    input = `<select ${common}><option value="">${escapeHtml(field.label)} 선택</option>${opts}</select>`;
+  } else {
+    const inputType = ["email", "tel", "date"].includes(field.type) ? field.type : "text";
+    input = `<input type="${inputType}" ${common} placeholder="${escapeHtml(field.label)}" value="${escapeHtml(value)}" />`;
   }
-  const inputType = ["email", "tel", "date"].includes(field.type) ? field.type : "text";
-  return `<input type="${inputType}" ${common} placeholder="${escapeHtml(field.label)}" value="${escapeHtml(value)}" />`;
+  return `<div class="apply-field">${label}${input}</div>`;
 }
 
 function renderApplyFields() {

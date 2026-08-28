@@ -80,8 +80,9 @@ export const DEFAULT_APPLY_FIELDS = [
   { id: "field-name", label: "이름", type: "text", required: true, options: [], order: 0 },
   { id: "field-phone", label: "휴대전화번호", type: "tel", required: true, options: [], order: 1 },
   { id: "field-email", label: "이메일", type: "email", required: true, options: [], order: 2 },
-  { id: "field-wish-date", label: "희망 교육날짜", type: "date", required: false, options: [], order: 3 },
-  { id: "field-apply-content", label: "교육신청 내용", type: "textarea", required: true, options: [], order: 4 },
+  { id: "field-wish-date", label: "예상 수업 일시", type: "text", required: false, options: [], order: 3 },
+  { id: "field-org", label: "수요기관", type: "text", required: false, options: [], order: 4 },
+  { id: "field-apply-content", label: "교육신청 내용", type: "textarea", required: true, options: [], order: 5 },
 ];
 
 export const DEFAULT_POSTS = [
