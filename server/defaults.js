@@ -78,9 +78,10 @@ export const DEFAULT_NOTICES = [
 
 export const DEFAULT_APPLY_FIELDS = [
   { id: "field-name", label: "이름", type: "text", required: true, options: [], order: 0 },
-  { id: "field-email", label: "이메일", type: "email", required: true, options: [], order: 1 },
-  { id: "field-phone", label: "전화번호", type: "tel", required: true, options: [], order: 2 },
-  { id: "field-message", label: "문의 내용", type: "textarea", required: true, options: [], order: 3 },
+  { id: "field-phone", label: "휴대전화번호", type: "tel", required: true, options: [], order: 1 },
+  { id: "field-email", label: "이메일", type: "email", required: true, options: [], order: 2 },
+  { id: "field-wish-date", label: "희망 교육날짜", type: "date", required: false, options: [], order: 3 },
+  { id: "field-apply-content", label: "교육신청 내용", type: "textarea", required: true, options: [], order: 4 },
 ];
 
 export const DEFAULT_POSTS = [

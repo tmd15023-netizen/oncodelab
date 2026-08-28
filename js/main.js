@@ -225,7 +225,7 @@ function renderClassPage() {
 }
 
 function fieldTypeLabel(type) {
-  return { text: "한 줄 텍스트", email: "이메일", tel: "전화번호", textarea: "여러 줄 텍스트", select: "선택 목록" }[type] || "한 줄 텍스트";
+  return { text: "한 줄 텍스트", email: "이메일", tel: "전화번호", date: "날짜", textarea: "여러 줄 텍스트", select: "선택 목록" }[type] || "한 줄 텍스트";
 }
 
 function fieldTypeOptions(selected) {
@@ -233,6 +233,7 @@ function fieldTypeOptions(selected) {
     { value: "text", label: "한 줄 텍스트" },
     { value: "email", label: "이메일" },
     { value: "tel", label: "전화번호" },
+    { value: "date", label: "날짜" },
     { value: "textarea", label: "여러 줄 텍스트" },
     { value: "select", label: "선택 목록" },
   ];
@@ -248,7 +249,7 @@ function applyFieldInputHtml(field, value = "") {
     const opts = (field.options || []).map((opt) => `<option ${opt === value ? "selected" : ""}>${escapeHtml(opt)}</option>`).join("");
     return `<select ${common}><option value="">${escapeHtml(field.label)} 선택</option>${opts}</select>`;
   }
-  const inputType = ["email", "tel"].includes(field.type) ? field.type : "text";
+  const inputType = ["email", "tel", "date"].includes(field.type) ? field.type : "text";
   return `<input type="${inputType}" ${common} placeholder="${escapeHtml(field.label)}" value="${escapeHtml(value)}" />`;
 }
 
@@ -289,6 +290,11 @@ function fillInquiryOptions() {
   ].join("");
 }
 
+// 이름/연락처/이메일은 로그인 계정 정보로 자동 채워지므로 폼에 다시 물어보지 않는다.
+function isAutoFillableApplyField(field, idx) {
+  return field.type === "tel" || field.type === "email" || idx === 0;
+}
+
 function initClassSelection() {
   const box = document.getElementById("class-apply-box");
   if (!box) return;
@@ -306,20 +312,28 @@ function initClassSelection() {
     box.innerHTML = `<p class="sub">신청할 강좌를 <a href="class">Class 목록</a>에서 선택해 주세요.</p>`;
     return;
   }
+  const visibleFields = applyFieldCache.filter((field, idx) => !isAutoFillableApplyField(field, idx));
   box.innerHTML = `
     <p class="sub" style="margin-bottom:16px"><b>${escapeHtml(classTitle)}</b> 강좌에 신청합니다.</p>
-    <button class="btn btn-orange" type="button" id="class-apply-btn">신청하기</button>
+    <form class="form" id="class-apply-form">
+      ${visibleFields.map((field) => applyFieldInputHtml(field)).join("")}
+      <button class="btn btn-orange" type="submit">신청하기</button>
+    </form>
   `;
-  document.getElementById("class-apply-btn")?.addEventListener("click", () => submitClassApply(classTitle));
+  document.getElementById("class-apply-form")?.addEventListener("submit", (event) => submitClassApply(event, classTitle));
 }
 
-async function submitClassApply(classTitle) {
+async function submitClassApply(event, classTitle) {
+  event.preventDefault();
   const me = getSession();
   if (!me || !classTitle) return;
-  const body = { kind: "class", type: classTitle };
+  const entered = Object.fromEntries(new FormData(event.target));
+  const body = { kind: "class", type: classTitle, ...entered };
   applyFieldCache.forEach((field, idx) => {
+    if (!isAutoFillableApplyField(field, idx)) return;
     if (field.type === "tel") body[field.id] = me.phone || "";
-    else if (idx === 0) body[field.id] = me.name || "";
+    else if (field.type === "email") body[field.id] = me.email || "";
+    else body[field.id] = me.name || "";
   });
   try {
     await api("/api/applications", { method: "POST", body: JSON.stringify(body) });
