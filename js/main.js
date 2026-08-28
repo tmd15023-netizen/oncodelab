@@ -461,6 +461,9 @@ function refreshAuthButton() {
   const loginBtn = actions?.querySelector("[data-auth='login']");
   document.querySelector("[data-auth='mypage']")?.remove();
   document.querySelector("[data-auth='admin']")?.remove();
+  // 관리자 계정은 헤더 버튼이 많아 복잡해지므로 방문객용 "교육신청 / 문의" 버튼은 숨긴다.
+  const inquiryBtn = actions?.querySelector(".btn-orange");
+  if (inquiryBtn) inquiryBtn.style.display = isAdmin() ? "none" : "";
   if (session && actions) {
     const mypage = Object.assign(document.createElement("a"), {
       className: "btn btn-line",
