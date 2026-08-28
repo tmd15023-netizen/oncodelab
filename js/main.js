@@ -1561,16 +1561,39 @@ function adminPostPanel(editing) {
 }
 
 function adminUsersPanel() {
-  return `<div class="profile-card"><h2>회원 관리</h2>
-    ${userCache
-      .map((item) => {
-        const admin = isAdmin(item);
-        return `<div class="user-row"><div><b>${escapeHtml(item.name)}</b><p>${escapeHtml(item.email)}</p><p>${escapeHtml(item.phone || "-")}</p></div>
-          <span class="role-badge ${admin ? "admin" : ""}">${admin ? "관리자" : "일반 회원"}</span>
-          <button class="btn ${admin ? "btn-line" : "btn-green"}" type="button" data-role-email="${escapeHtml(item.email)}" data-role-value="${admin ? "user" : "admin"}">${admin ? "일반 회원으로 변경" : "관리자 부여"}</button></div>`;
-      })
-      .join("")}
-  </div>`;
+  const rows = userCache.length
+    ? userCache
+        .map((item) => {
+          const admin = isAdmin(item);
+          return `<tr>
+            <td>${escapeHtml(item.name)}</td>
+            <td>${formatAdminDate(item.createdAt)}</td>
+            <td>${escapeHtml(item.phone || "-")}</td>
+            <td>${escapeHtml(item.email)}</td>
+            <td><span class="role-badge ${admin ? "admin" : ""}">${admin ? "관리자" : "일반 회원"}</span></td>
+            <td><button class="btn ${admin ? "btn-line" : "btn-green"}" type="button" data-role-email="${escapeHtml(item.email)}" data-role-value="${admin ? "user" : "admin"}">${admin ? "일반 회원으로 변경" : "관리자 부여"}</button></td>
+          </tr>`;
+        })
+        .join("")
+    : `<tr><td class="empty-row" colspan="6">가입한 회원이 없습니다.</td></tr>`;
+  return `<section class="dash-card">
+    <div class="dash-card-head"><h2>회원 관리</h2></div>
+    <div class="dash-table-wrap">
+      <table class="dash-table dash-table-static">
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>가입일자</th>
+            <th>전화번호</th>
+            <th>메일주소</th>
+            <th>회원상태</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  </section>`;
 }
 
 async function saveItem(kind, id, body) {

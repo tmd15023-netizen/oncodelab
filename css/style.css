@@ -934,6 +934,7 @@ h3 { font-size: 22px; }
   color: #2a2a2a;
 }
 .dash-table tbody tr { cursor: pointer; }
+.dash-table-static tbody tr { cursor: default; }
 .dash-table tbody tr:hover td { background: #fafafa; }
 .dash-table tbody tr:has(.empty-row) { cursor: default; }
 .dash-table tbody tr:has(.empty-row):hover td { background: transparent; }

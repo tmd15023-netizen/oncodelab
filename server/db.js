@@ -73,7 +73,7 @@ async function seedIfEmpty() {
 }
 
 export function publicUser(user) {
-  return user ? { name: user.name, email: user.email, phone: user.phone || "", role: user.role || "user" } : null;
+  return user ? { name: user.name, email: user.email, phone: user.phone || "", role: user.role || "user", createdAt: user.createdAt || null } : null;
 }
 
 export function publicTest(test, { includeSecret = false } = {}) {
