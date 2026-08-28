@@ -274,14 +274,25 @@ function applyFieldsSummary(item) {
     .join(" · ");
 }
 
+// "Class 신청자"는 실제 개설된 강좌를 신청한 사람, "수업신청내역"은 상담/문의(수업 의뢰)를 남긴 사람.
+const INQUIRY_TYPE = "수업 의뢰";
+function isInquiryApply(item) {
+  return item.type === INQUIRY_TYPE;
+}
+
 function filteredApplyCache() {
   const q = applyFilter.search.trim().toLowerCase();
   return applyCache.filter((item) => {
+    if (isInquiryApply(item)) return false;
     if (applyFilter.status !== "all" && (item.status || "pending") !== applyFilter.status) return false;
     if (!q) return true;
     const haystack = [applyDisplayName(item), item.type, applyFieldsSummary(item), item.note].join(" ").toLowerCase();
     return haystack.includes(q);
   });
+}
+
+function inquiryApplyCache() {
+  return applyCache.filter(isInquiryApply);
 }
 
 function fillInquiryOptions() {
@@ -1153,7 +1164,7 @@ function initAdmin() {
       adminTab = adminNav;
       if (adminTab !== "class") editClassId = null;
       if (adminTab !== "test") editTestId = null;
-      if (adminTab !== "apply") {
+      if (adminTab !== "apply" && adminTab !== "fields") {
         editApplyId = null;
         viewApplyId = null;
       }
@@ -1181,9 +1192,11 @@ function initAdmin() {
     }
     const editApply = event.target.closest("[data-edit-apply]");
     if (editApply) {
-      adminTab = "apply";
-      adminNav = "apply";
-      editApplyId = editApply.dataset.editApply;
+      const id = editApply.dataset.editApply;
+      const item = applyCache.find((entry) => entry.id === id);
+      adminTab = isInquiryApply(item || {}) ? "fields" : "apply";
+      adminNav = adminTab;
+      editApplyId = id;
       initAdmin();
       return;
     }
@@ -1196,9 +1209,11 @@ function initAdmin() {
     }
     const viewApply = event.target.closest("[data-view-apply]");
     if (viewApply && !event.target.closest("select, button")) {
-      adminTab = "apply";
-      adminNav = "apply";
-      viewApplyId = viewApply.dataset.viewApply;
+      const id = viewApply.dataset.viewApply;
+      const item = applyCache.find((entry) => entry.id === id);
+      adminTab = isInquiryApply(item || {}) ? "fields" : "apply";
+      adminNav = adminTab;
+      viewApplyId = id;
       initAdmin();
       return;
     }
@@ -1428,6 +1443,7 @@ function applyStatus(status) {
 
 function classOptions(selected) {
   const titles = ["온라인 Class 신청", ...classCache.map((item) => item.title), "TEST 진단"];
+  if (selected && !titles.includes(selected)) titles.unshift(selected); // 수업 의뢰처럼 목록에 없는 값도 그대로 보존
   return titles
     .map((title) => `<option ${title === selected ? "selected" : ""}>${escapeHtml(title)}</option>`)
     .join("");
@@ -1449,23 +1465,30 @@ const APPLY_STATUS_TABS = [
   { id: "done", label: "완료" },
 ];
 
+function applyRowHtml(item) {
+  const summary = `${formatAdminDate(item.createdAt)} · ${escapeHtml(item.type || "")} · ${escapeHtml(applyFieldsSummary(item))}${item.note ? ` · 메모: ${escapeHtml(item.note)}` : ""}`;
+  const approved = item.status === "done";
+  return `<div class="admin-item" data-view-apply="${escapeHtml(item.id)}" style="cursor:pointer">
+    <div><b>${escapeHtml(applyDisplayName(item))}</b><p>${summary}</p></div>
+    <div class="admin-item-actions">
+      <button class="btn ${approved ? "btn-green" : "btn-line"}" type="button" data-quick-approve="${escapeHtml(item.id)}">${approved ? "승인됨" : "승인"}</button>
+      <button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button>
+      <button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button>
+    </div>
+  </div>`;
+}
+
+function inquiryResultsListHtml() {
+  const list = inquiryApplyCache();
+  return list.map(applyRowHtml).join("") || `<p class="sub">접수된 교육신청/문의가 없습니다.</p>`;
+}
+
 function applyResultsListHtml() {
   const list = filteredApplyCache();
+  const hasAny = applyCache.some((item) => !isInquiryApply(item));
   return (
-    list
-      .map((item) => {
-        const summary = `${formatAdminDate(item.createdAt)} · ${escapeHtml(item.type || "")} · ${escapeHtml(applyFieldsSummary(item))}${item.note ? ` · 메모: ${escapeHtml(item.note)}` : ""}`;
-        const approved = item.status === "done";
-        return `<div class="admin-item" data-view-apply="${escapeHtml(item.id)}" style="cursor:pointer">
-          <div><b>${escapeHtml(applyDisplayName(item))}</b><p>${summary}</p></div>
-          <div class="admin-item-actions">
-            <button class="btn ${approved ? "btn-green" : "btn-line"}" type="button" data-quick-approve="${escapeHtml(item.id)}">${approved ? "승인됨" : "승인"}</button>
-            <button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button>
-            <button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button>
-          </div>
-        </div>`;
-      })
-      .join("") || `<p class="sub">${applyCache.length ? "검색 결과가 없습니다." : "신청 내역이 없습니다."}</p>`
+    list.map((item) => applyRowHtml(item)).join("") ||
+    `<p class="sub">${hasAny ? "검색 결과가 없습니다." : "신청 내역이 없습니다."}</p>`
   );
 }
 
@@ -1496,32 +1519,33 @@ function renderApplyResults() {
   results.innerHTML = applyResultsListHtml();
 }
 
+function applyEditFormHtml(editing) {
+  return `<div class="profile-card">
+    <h2>${isInquiryApply(editing) ? "교육신청/문의 수정" : "Class 신청 수정"}</h2>
+    <form class="admin-form" id="apply-form">
+      ${applyFieldCache.map((field) => applyFieldInputHtml(field, editing?.values?.[field.id] || "")).join("")}
+      <div class="admin-form-row">
+        <select name="type">${classOptions(editing?.type)}</select>
+        <select name="status">${statusSelectOptions(editing?.status || "pending")}</select>
+      </div>
+      <textarea name="note" rows="3" placeholder="상담 메모 (관리자만 보는 내부 메모)">${escapeHtml(editing?.note || "")}</textarea>
+      <div class="admin-form-actions">
+        <button class="btn btn-green" type="submit">수정 저장</button>
+        <button class="btn btn-line" type="button" data-cancel-apply>취소</button>
+      </div>
+    </form>
+  </div>`;
+}
+
 function adminApplyPanel(editing) {
   if (!editing) {
-    const viewed = applyCache.find((item) => item.id === viewApplyId);
+    const viewed = applyCache.find((item) => item.id === viewApplyId && !isInquiryApply(item));
     if (viewed) return applyDetailHtml(viewed);
   }
-  const formBlock = editing
-    ? `<div class="profile-card">
-      <h2>수업 신청 수정</h2>
-      <form class="admin-form" id="apply-form">
-        ${applyFieldCache.map((field) => applyFieldInputHtml(field, editing?.values?.[field.id] || "")).join("")}
-        <div class="admin-form-row">
-          <select name="type">${classOptions(editing?.type)}</select>
-          <select name="status">${statusSelectOptions(editing?.status || "pending")}</select>
-        </div>
-        <textarea name="note" rows="3" placeholder="상담 메모 (관리자만 보는 내부 메모)">${escapeHtml(editing?.note || "")}</textarea>
-        <div class="admin-form-actions">
-          <button class="btn btn-green" type="submit">수정 저장</button>
-          <button class="btn btn-line" type="button" data-cancel-apply>취소</button>
-        </div>
-      </form>
-    </div>`
-    : "";
   return `
-    ${formBlock}
+    ${editing ? applyEditFormHtml(editing) : ""}
     <div class="profile-card" style="margin-top:20px">
-      <h2>수업 신청 내역</h2>
+      <h2>Class 신청 내역</h2>
       <input type="text" id="apply-search" placeholder="이름·연락처·메모 검색" value="${escapeHtml(applyFilter.search)}" style="width:100%;margin-top:12px" />
       <div class="tabs" style="margin:14px 0">
         ${APPLY_STATUS_TABS.map((tab) => `<button type="button" class="tab ${applyFilter.status === tab.id ? "active" : ""}" data-apply-filter="${tab.id}">${tab.label}</button>`).join("")}
@@ -1531,8 +1555,12 @@ function adminApplyPanel(editing) {
 }
 
 function adminFieldsPanel(editing) {
+  const viewedInquiry = applyCache.find((item) => item.id === viewApplyId && isInquiryApply(item));
+  if (viewedInquiry) return applyDetailHtml(viewedInquiry);
+  const editingInquiry = applyCache.find((item) => item.id === editApplyId && isInquiryApply(item));
   const sorted = [...applyFieldCache].sort((a, b) => a.order - b.order);
   return `
+    ${editingInquiry ? applyEditFormHtml(editingInquiry) : ""}
     <div class="profile-card">
       <h2>${editing ? "입력 항목 수정" : "입력 항목 추가"}</h2>
       <p class="sub">수업 신청 페이지에서 방문자가 채워야 하는 입력 칸을 자유롭게 구성하세요.</p>
@@ -1564,6 +1592,11 @@ function adminFieldsPanel(editing) {
           )
           .join("") || `<p class="sub">등록된 입력 항목이 없습니다.</p>`
       }
+    </div>
+    <div class="profile-card" style="margin-top:20px">
+      <h2>교육신청/문의 목록</h2>
+      <p class="sub">상단 "교육신청 / 문의" 버튼으로 접수된 상담·문의 내역입니다.</p>
+      <div style="margin-top:12px">${inquiryResultsListHtml()}</div>
     </div>`;
 }
 
