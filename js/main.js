@@ -614,7 +614,7 @@ function renderHomeReviews() {
   box.innerHTML = `
     <div class="review-search-wrap">
       <span class="review-search-icon">🔍</span>
-      <input type="text" id="home-review-search" class="review-search-input" placeholder="검색" value="${escapeHtml(homeReviewSearch)}" />
+      <input type="text" id="home-review-search" class="review-search-input" placeholder="원하는 교육을 검색하세요." value="${escapeHtml(homeReviewSearch)}" />
     </div>
     <div id="home-review-results">${homeReviewResultsHtml()}</div>`;
   loadMissingThumbnails(box);
