@@ -561,11 +561,44 @@ async function loadBlogReviews() {
   }
 }
 
+let homeReviewSearch = "";
+const HOME_REVIEW_PAGE_SIZE = 25; // 5행 5열
+
+function homeReviewCardHtml(item) {
+  const thumb = item.image
+    ? `<img src="${escapeHtml(item.image)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:auto" />`
+    : `<div class="thumb live">REVIEW</div>`;
+  return `<article class="card">
+    ${thumb}
+    <div class="card-body">
+      <a class="btn btn-line" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">블로그에서 보기</a>
+    </div>
+  </article>`;
+}
+
+function homeReviewResultsHtml() {
+  if (!blogReviewCache.length) return `<p class="sub" style="padding:24px 0">불러올 후기가 없습니다.</p>`;
+  const query = homeReviewSearch.trim().toLowerCase();
+  const filtered = query ? blogReviewCache.filter((item) => item.title.toLowerCase().includes(query)) : blogReviewCache;
+  if (!filtered.length) return `<p class="sub" style="padding:24px 0">검색 결과가 없습니다.</p>`;
+  const pageItems = filtered.slice(0, HOME_REVIEW_PAGE_SIZE);
+  return `<div class="cards review-grid">${pageItems.map(homeReviewCardHtml).join("")}</div>`;
+}
+
 function renderHomeReviews() {
   const box = document.getElementById("home-reviews");
   if (!box) return;
-  const top = blogReviewCache.slice(0, 5);
-  box.innerHTML = top.length ? top.map(reviewCardHtml).join("") : `<p class="sub" style="padding:24px 0">불러올 후기가 없습니다.</p>`;
+  box.innerHTML = `
+    <div class="review-search-wrap">
+      <span class="review-search-icon">🔍</span>
+      <input type="text" id="home-review-search" class="review-search-input" placeholder="검색" value="${escapeHtml(homeReviewSearch)}" />
+    </div>
+    <div id="home-review-results">${homeReviewResultsHtml()}</div>`;
+  box.querySelector("#home-review-search")?.addEventListener("input", (event) => {
+    homeReviewSearch = event.target.value;
+    const results = document.getElementById("home-review-results");
+    if (results) results.innerHTML = homeReviewResultsHtml();
+  });
 }
 
 function reviewCardHtml(item) {
