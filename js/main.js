@@ -1653,7 +1653,7 @@ function adminUsersPanel() {
             <td><span class="role-badge ${admin ? "admin" : ""}">${admin ? "관리자" : "일반 회원"}</span></td>
             <td style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn ${admin ? "btn-line" : "btn-green"}" type="button" data-role-email="${escapeHtml(item.email)}" data-role-value="${admin ? "user" : "admin"}">${admin ? "일반 회원으로 변경" : "관리자 부여"}</button>
-              <button class="btn btn-orange" type="button" data-delete-user="${escapeHtml(item.email)}" data-user-name="${escapeHtml(item.name)}">삭제</button>
+              <button class="btn btn-orange" type="button" data-delete-user="${escapeHtml(item.email)}" data-user-name="${escapeHtml(item.name)}" style="margin-left:auto">삭제</button>
             </td>
           </tr>`;
         })
