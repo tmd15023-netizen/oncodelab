@@ -510,6 +510,7 @@ async function refreshAccountViews() {
   initClassSelection();
   initNotices();
   initCommunity();
+  renderHomeReviews();
 }
 
 function formatBoardDate(value) {
@@ -558,6 +559,13 @@ async function loadBlogReviews() {
   } catch (error) {
     console.warn(error.message);
   }
+}
+
+function renderHomeReviews() {
+  const box = document.getElementById("home-reviews");
+  if (!box) return;
+  const top = blogReviewCache.slice(0, 5);
+  box.innerHTML = top.length ? top.map(reviewCardHtml).join("") : `<p class="sub" style="padding:24px 0">불러올 후기가 없습니다.</p>`;
 }
 
 function reviewCardHtml(item) {
@@ -2014,7 +2022,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     initAdmin();
     initTests();
     initNotices();
-    loadBlogReviews().then(initCommunity);
+    loadBlogReviews().then(() => {
+      initCommunity();
+      renderHomeReviews();
+    });
     initCommunity();
     setupLivePolling();
   } finally {
