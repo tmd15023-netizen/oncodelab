@@ -564,12 +564,35 @@ async function loadBlogReviews() {
 let homeReviewSearch = "";
 const HOME_REVIEW_PAGE_SIZE = 25; // 5행 5열
 
-function homeReviewCardHtml(item) {
-  const thumb = item.image
+function reviewThumbHtml(item) {
+  return item.image
     ? `<img src="${escapeHtml(item.image)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:auto" />`
-    : `<div class="thumb live">REVIEW</div>`;
+    : `<div class="thumb live" data-thumb-for="${escapeHtml(item.link)}">REVIEW</div>`;
+}
+
+// RSS에 썸네일이 없는(오래된) 글은 목록에는 이미지 없이 나오고, 실제로 화면에
+// 그려진 카드에 한해서만 본문에서 이미지를 가져와 채워 넣는다(전체를 한 번에
+// 긁으면 너무 느리고 부하가 크기 때문). 같은 글은 세션 내에서 한 번만 요청한다.
+const thumbnailFetchCache = {};
+async function loadMissingThumbnails(root) {
+  const placeholders = root.querySelectorAll("[data-thumb-for]");
+  for (const el of placeholders) {
+    const link = el.dataset.thumbFor;
+    if (!thumbnailFetchCache[link]) {
+      thumbnailFetchCache[link] = api(`/api/blog-reviews/thumbnail?link=${encodeURIComponent(link)}`).catch(() => ({ image: "" }));
+    }
+    thumbnailFetchCache[link].then((result) => {
+      if (!result?.image) return;
+      document.querySelectorAll(`[data-thumb-for="${CSS.escape(link)}"]`).forEach((node) => {
+        node.outerHTML = `<img src="${escapeHtml(result.image)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:auto" />`;
+      });
+    });
+  }
+}
+
+function homeReviewCardHtml(item) {
   return `<article class="card">
-    ${thumb}
+    ${reviewThumbHtml(item)}
     <div class="card-body">
       <a class="btn btn-line" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">블로그에서 보기</a>
     </div>
@@ -594,20 +617,21 @@ function renderHomeReviews() {
       <input type="text" id="home-review-search" class="review-search-input" placeholder="검색" value="${escapeHtml(homeReviewSearch)}" />
     </div>
     <div id="home-review-results">${homeReviewResultsHtml()}</div>`;
+  loadMissingThumbnails(box);
   box.querySelector("#home-review-search")?.addEventListener("input", (event) => {
     homeReviewSearch = event.target.value;
     const results = document.getElementById("home-review-results");
-    if (results) results.innerHTML = homeReviewResultsHtml();
+    if (results) {
+      results.innerHTML = homeReviewResultsHtml();
+      loadMissingThumbnails(results);
+    }
   });
 }
 
 function reviewCardHtml(item) {
   const author = item.blogId === "smartjula" ? "박주라 강사 블로그" : "백승희 강사 블로그";
-  const thumb = item.image
-    ? `<img src="${escapeHtml(item.image)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:auto" />`
-    : `<div class="thumb live">REVIEW</div>`;
   return `<article class="card">
-    ${thumb}
+    ${reviewThumbHtml(item)}
     <div class="card-body">
       <small>${escapeHtml(author)}</small>
       <h3>${escapeHtml(item.title)}</h3>
@@ -683,6 +707,7 @@ function renderReviewResults() {
   const results = document.getElementById("review-results");
   if (!results) return;
   results.innerHTML = reviewResultsHtml();
+  loadMissingThumbnails(results);
   results.querySelectorAll("[data-review-page]").forEach((btn) => {
     btn.addEventListener("click", () => {
       const value = btn.dataset.reviewPage;

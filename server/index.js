@@ -282,6 +282,30 @@ app.get("/api/blog-reviews", async (_req, res) => {
   res.json(await fetchBlogReviews());
 });
 
+// RSS만으로는 블로그당 최근 ~50개 글에만 썸네일이 딸려 오고, 그 이전 글은
+// PostTitleListAsync에 썸네일 필드 자체가 없다. 화면에 실제로 보여지는 카드에
+// 한해서만, 그 글의 실제 본문 페이지(og:image)를 요청 시점에 가져와 보완한다.
+// 글 썸네일은 발행 후 바뀌지 않으므로 logNo 기준으로 영구 캐시한다.
+const thumbnailCache = new Map();
+
+app.get("/api/blog-reviews/thumbnail", async (req, res) => {
+  const link = String(req.query.link || "");
+  const match = link.match(/^https:\/\/blog\.naver\.com\/([a-zA-Z0-9_-]+)\/(\d+)/);
+  if (!match || !BLOG_IDS.includes(match[1])) return res.status(400).json({ error: "잘못된 링크입니다." });
+  const [, blogId, logNo] = match;
+  if (thumbnailCache.has(logNo)) return res.json({ image: thumbnailCache.get(logNo) });
+  try {
+    const url = `https://blog.naver.com/PostView.naver?blogId=${encodeURIComponent(blogId)}&logNo=${encodeURIComponent(logNo)}&redirect=Dlog&widgetTypeCall=true`;
+    const html = await (await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } })).text();
+    const image = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1] || "";
+    thumbnailCache.set(logNo, image);
+    res.json({ image });
+  } catch (error) {
+    console.error(`블로그 글(${logNo}) 썸네일을 불러오지 못했습니다:`, error.message);
+    res.json({ image: "" });
+  }
+});
+
 app.get("/api/classes", async (req, res) => {
   const admin = isAdmin(await userFromReq(req));
   res.json((await col("classes").find({}).toArray()).map((item) => publicClass(item, { includeSecret: admin })));
