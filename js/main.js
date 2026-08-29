@@ -1295,6 +1295,8 @@ function initAdmin() {
     if (delField) deleteAdminItem("apply-fields", delField.dataset.deleteField, applyFieldCache);
     const roleBtn = event.target.closest("[data-role-email]");
     if (roleBtn) setUserRole(roleBtn.dataset.roleEmail, roleBtn.dataset.roleValue);
+    const delUser = event.target.closest("[data-delete-user]");
+    if (delUser) deleteUser(delUser.dataset.deleteUser, delUser.dataset.userName);
   };
   box.querySelector("#class-form")?.addEventListener("submit", (event) => saveAdminClass(event));
   box.querySelector("#test-form")?.addEventListener("submit", (event) => saveAdminTest(event));
@@ -1649,7 +1651,10 @@ function adminUsersPanel() {
             <td>${escapeHtml(item.phone || "-")}</td>
             <td>${escapeHtml(item.email)}</td>
             <td><span class="role-badge ${admin ? "admin" : ""}">${admin ? "관리자" : "일반 회원"}</span></td>
-            <td><button class="btn ${admin ? "btn-line" : "btn-green"}" type="button" data-role-email="${escapeHtml(item.email)}" data-role-value="${admin ? "user" : "admin"}">${admin ? "일반 회원으로 변경" : "관리자 부여"}</button></td>
+            <td style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn ${admin ? "btn-line" : "btn-green"}" type="button" data-role-email="${escapeHtml(item.email)}" data-role-value="${admin ? "user" : "admin"}">${admin ? "일반 회원으로 변경" : "관리자 부여"}</button>
+              <button class="btn btn-orange" type="button" data-delete-user="${escapeHtml(item.email)}" data-user-name="${escapeHtml(item.name)}">삭제</button>
+            </td>
           </tr>`;
         })
         .join("")
@@ -1891,6 +1896,16 @@ async function setUserRole(email, role) {
     });
     const me = getSession();
     if (me?.email === email) localStorage.setItem("oncodelab-session", JSON.stringify({ ...me, role: result.user.role }));
+    await refreshAccountViews();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function deleteUser(email, name) {
+  if (!window.confirm(`"${name || email}" 회원을 삭제할까요? 계정과 로그인 세션이 즉시 사라지며 되돌릴 수 없습니다.`)) return;
+  try {
+    await api(`/api/admin/users/${encodeURIComponent(email)}`, { method: "DELETE" });
     await refreshAccountViews();
   } catch (error) {
     window.alert(error.message);

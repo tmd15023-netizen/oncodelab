@@ -520,6 +520,21 @@ app.patch("/api/admin/users/:email/role", requireAdmin, async (req, res) => {
   res.json({ user: publicUser(updated) });
 });
 
+app.delete("/api/admin/users/:email", requireAdmin, async (req, res) => {
+  const email = decodeURIComponent(req.params.email).toLowerCase();
+  if (email === req.user.email) {
+    return res.status(400).json({ error: "본인 계정은 삭제할 수 없습니다." });
+  }
+  const target = await col("users").findOne({ email });
+  if (!target) return res.status(404).json({ error: "회원을 찾을 수 없습니다." });
+  if (isAdmin(target) && (await col("users").countDocuments({ role: "admin", email: { $ne: email } })) === 0) {
+    return res.status(400).json({ error: "마지막 관리자 계정은 삭제할 수 없습니다." });
+  }
+  await col("users").deleteOne({ email });
+  await col("sessions").deleteMany({ email });
+  res.json({ ok: true });
+});
+
 app.post("/api/admin/classes", requireAdmin, async (req, res) => {
   const item = classPayload(req.body);
   if (!item.title) return res.status(400).json({ error: "교육 제목을 입력해 주세요." });
