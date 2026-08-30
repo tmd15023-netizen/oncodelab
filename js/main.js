@@ -1628,42 +1628,9 @@ function adminFieldsPanel(editing) {
   const viewedInquiry = applyCache.find((item) => item.id === viewApplyId && isInquiryApply(item));
   if (viewedInquiry) return applyDetailHtml(viewedInquiry);
   const editingInquiry = applyCache.find((item) => item.id === editApplyId && isInquiryApply(item));
-  const sorted = [...applyFieldCache].sort((a, b) => a.order - b.order);
   return `
     ${editingInquiry ? applyEditFormHtml(editingInquiry) : ""}
     <div class="profile-card">
-      <h2>${editing ? "입력 항목 수정" : "입력 항목 추가"}</h2>
-      <p class="sub">수업 신청 페이지에서 방문자가 채워야 하는 입력 칸을 자유롭게 구성하세요.</p>
-      <form class="admin-form" id="field-form">
-        <div class="admin-form-row">
-          <input required name="label" placeholder="항목 이름 (예: 학년, 희망 시간대)" value="${escapeHtml(editing?.label || "")}" />
-          <select name="type">${fieldTypeOptions(editing?.type)}</select>
-        </div>
-        <input name="options" placeholder="선택 목록일 때만: 옵션을 쉼표로 구분 (예: 오전,오후,저녁)" value="${escapeHtml((editing?.options || []).join(", "))}" />
-        <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)"><input type="checkbox" name="required" ${!editing || editing.required ? "checked" : ""} /> 필수 입력</label>
-        <div class="admin-form-actions">
-          <button class="btn btn-green" type="submit">${editing ? "수정 저장" : "항목 추가"}</button>
-          ${editing ? `<button class="btn btn-line" type="button" data-cancel-field>취소</button>` : ""}
-        </div>
-      </form>
-    </div>
-    <div class="profile-card" style="margin-top:20px"><h2>입력 항목 목록</h2>
-      ${
-        sorted
-          .map(
-            (field, idx) => `<div class="admin-item"><div><b>${escapeHtml(field.label)}</b><p>${fieldTypeLabel(field.type)}${field.required ? " · 필수" : " · 선택"}${field.options?.length ? " · " + escapeHtml(field.options.join(", ")) : ""}</p></div>
-        <div class="admin-item-actions">
-          <button class="btn btn-line" type="button" data-move-field-up="${escapeHtml(field.id)}" ${idx === 0 ? "disabled" : ""}>위로</button>
-          <button class="btn btn-line" type="button" data-move-field-down="${escapeHtml(field.id)}" ${idx === sorted.length - 1 ? "disabled" : ""}>아래로</button>
-          <button class="btn btn-line" type="button" data-edit-field="${escapeHtml(field.id)}">수정</button>
-          <button class="btn btn-orange" type="button" data-delete-field="${escapeHtml(field.id)}">삭제</button>
-        </div>
-      </div>`,
-          )
-          .join("") || `<p class="sub">등록된 입력 항목이 없습니다.</p>`
-      }
-    </div>
-    <div class="profile-card" style="margin-top:20px">
       <h2>교육신청/문의 목록</h2>
       <p class="sub">상단 "교육신청 / 문의" 버튼으로 접수된 상담·문의 내역입니다.</p>
       <div style="margin-top:12px">${inquiryResultsListHtml()}</div>
