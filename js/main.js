@@ -828,6 +828,8 @@ async function deletePostFlow(id) {
 function initCommunity() {
   const box = document.getElementById("community");
   if (!box) return;
+  const tabParam = new URLSearchParams(location.search).get("tab");
+  if (["info", "review", "question"].includes(tabParam)) communityTab = tabParam;
   const tabsHtml = `<div class="tabs">
     <button type="button" class="tab ${communityTab === "info" ? "active" : ""}" data-community-tab="info">교육정보</button>
     <button type="button" class="tab ${communityTab === "review" ? "active" : ""}" data-community-tab="review">교육후기</button>
