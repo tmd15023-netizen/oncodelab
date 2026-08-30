@@ -1282,6 +1282,7 @@ function initAdmin() {
       adminTab = isInquiryApply(item || {}) ? "fields" : "apply";
       adminNav = adminTab;
       viewApplyId = id;
+      markApplyViewed(id);
       initAdmin();
       return;
     }
@@ -1402,7 +1403,7 @@ function adminOverview() {
               </div>
             </td>
             <td>${formatAdminDate(item.createdAt)}</td>
-            <td>${escapeHtml(applyDisplayName(item))}</td>
+            <td class="${isApplyUnread(item) ? "apply-unread" : ""}">${escapeHtml(applyDisplayName(item))}</td>
             <td><span class="dash-status is-${escapeHtml(status)}">${applyStatus(status)}</span></td>
           </tr>`;
         })
@@ -1535,11 +1536,26 @@ const APPLY_STATUS_TABS = [
   { id: "done", label: "완료" },
 ];
 
+function isApplyUnread(item) {
+  return !item?.viewedAt;
+}
+
+async function markApplyViewed(id) {
+  const item = applyCache.find((entry) => entry.id === id);
+  if (!item || item.viewedAt) return;
+  item.viewedAt = new Date().toISOString();
+  try {
+    await api(`/api/admin/applications/${encodeURIComponent(id)}/viewed`, { method: "POST" });
+  } catch (error) {
+    console.warn(error.message);
+  }
+}
+
 function applyRowHtml(item) {
   const summary = `${formatAdminDate(item.createdAt)} · ${escapeHtml(item.type || "")} · ${escapeHtml(applyFieldsSummary(item))}${item.note ? ` · 메모: ${escapeHtml(item.note)}` : ""}`;
   const approved = item.status === "done";
   return `<div class="admin-item" data-view-apply="${escapeHtml(item.id)}" style="cursor:pointer">
-    <div><b>${escapeHtml(applyDisplayName(item))}</b><p>${summary}</p></div>
+    <div><b class="${isApplyUnread(item) ? "apply-unread" : ""}">${escapeHtml(applyDisplayName(item))}</b><p>${summary}</p></div>
     <div class="admin-item-actions">
       <button class="btn ${approved ? "btn-green" : "btn-line"}" type="button" data-quick-approve="${escapeHtml(item.id)}">${approved ? "승인됨" : "승인"}</button>
       <button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button>
@@ -1571,7 +1587,7 @@ function applyDetailHtml(item) {
     .join("");
   return `<div class="profile-card">
     <p class="kicker">${formatAdminDate(item.createdAt)}</p>
-    <h2>${escapeHtml(applyDisplayName(item))}</h2>
+    <h2 class="${isApplyUnread(item) ? "apply-unread" : ""}">${escapeHtml(applyDisplayName(item))}</h2>
     <p class="sub">상태: ${applyStatus(item.status)}${item.type ? ` · 신청 교육: ${escapeHtml(item.type)}` : ""}</p>
     <div class="doc-body">${rows || `<p class="sub">등록된 내용이 없습니다.</p>`}</div>
     ${item.note ? `<p style="margin-top:16px"><b>상담 메모</b><br>${escapeHtml(item.note)}</p>` : ""}

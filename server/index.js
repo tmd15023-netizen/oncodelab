@@ -509,7 +509,7 @@ app.get("/api/admin/applications", requireAdmin, async (_req, res) => {
 
 app.post("/api/admin/applications", requireAdmin, async (req, res) => {
   const fields = await col("applyFields").find({}).sort({ order: 1 }).toArray();
-  const item = { ...applyPayload(req.body, null, fields), note: String(req.body.note || "").trim() };
+  const item = { ...applyPayload(req.body, null, fields), note: String(req.body.note || "").trim(), viewedAt: null };
   if (!item.type) return res.status(400).json({ error: "신청 교육을 선택해 주세요." });
   await saveDoc(res, "applications", null, item, publicApplication);
 });
@@ -517,9 +517,18 @@ app.post("/api/admin/applications", requireAdmin, async (req, res) => {
 app.put("/api/admin/applications/:id", requireAdmin, async (req, res) => {
   const current = await col("applications").findOne({ id: req.params.id });
   const fields = await col("applyFields").find({}).sort({ order: 1 }).toArray();
-  const item = { ...applyPayload({ ...req.body, createdAt: current?.createdAt }, req.params.id, fields), note: String(req.body.note || "").trim() };
+  // 상태 변경/수정 등 내용이 바뀔 때마다 다시 "안읽음"으로 표시해 다른 관리자도 변경을 알아챌 수 있게 한다.
+  const item = { ...applyPayload({ ...req.body, createdAt: current?.createdAt }, req.params.id, fields), note: String(req.body.note || "").trim(), viewedAt: null };
   if (!item.type) return res.status(400).json({ error: "신청 교육을 선택해 주세요." });
   await saveDoc(res, "applications", req.params.id, item, publicApplication, "신청 내역을 찾을 수 없습니다.");
+});
+
+app.post("/api/admin/applications/:id/viewed", requireAdmin, async (req, res) => {
+  const updated = unwrap(
+    await col("applications").findOneAndUpdate({ id: req.params.id }, { $set: { viewedAt: new Date() } }, { returnDocument: "after" }),
+  );
+  if (!updated) return res.status(404).json({ error: "신청 내역을 찾을 수 없습니다." });
+  res.json(publicApplication(updated));
 });
 
 app.delete("/api/admin/applications/:id", requireAdmin, async (req, res) => {

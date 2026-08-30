@@ -122,5 +122,6 @@ export function publicApplication(item) {
     note: item.note || "",
     status: item.status || "pending",
     createdAt: item.createdAt,
+    viewedAt: item.viewedAt || null,
   };
 }
