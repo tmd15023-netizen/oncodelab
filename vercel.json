@@ -3,6 +3,7 @@
   "regions": ["icn1"],
   "rewrites": [
     { "source": "/api/:path*", "destination": "/api/index" },
-    { "source": "/uploads/:path*", "destination": "/api/index" }
+    { "source": "/uploads/:path*", "destination": "/api/index" },
+    { "source": "/naver9b24fedc89fb74035b789010885c7403.html", "destination": "/naver9b24fedc89fb74035b789010885c7403.html" }
   ]
 }
