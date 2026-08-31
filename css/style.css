@@ -182,9 +182,7 @@ img { max-width: 100%; display: block; }
 }
 
 .hero {
-  background:
-    linear-gradient(180deg, rgba(15, 36, 59, .38), rgba(15, 36, 59, .62)),
-    url("../images/hero.png") center / cover no-repeat;
+  background: linear-gradient(160deg, var(--navy), var(--navy-deep));
   color: #fff;
   min-height: 78vh;
   display: grid;
