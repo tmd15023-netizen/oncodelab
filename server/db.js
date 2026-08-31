@@ -95,7 +95,15 @@ export function publicTest(test, { includeSecret = false } = {}) {
 
 export function publicClass(cls, { includeSecret = false } = {}) {
   if (!cls) return null;
-  const base = { id: cls.id, label: cls.label, tone: cls.tone, status: cls.status, title: cls.title, summary: cls.summary };
+  const base = {
+    id: cls.id,
+    label: cls.label,
+    tone: cls.tone,
+    status: cls.status,
+    title: cls.title,
+    summary: cls.summary,
+    posterUrl: cls.posterUrl || "",
+  };
   return includeSecret
     ? { ...base, linkUrl: cls.linkUrl || "", fileUrl: cls.fileUrl || "", fileName: cls.fileName || "", password: cls.password || "" }
     : base;

@@ -310,13 +310,17 @@ function renderClassPage() {
       const actionHtml = access
         ? `<a class="btn btn-orange" href="${escapeHtml(access.linkUrl || (access.fileUrl ? API + access.fileUrl : "#"))}" target="_blank" rel="noopener">수강하기</a>`
         : `<a class="btn btn-orange" href="contact?classTitle=${encodeURIComponent(item.title)}">신청하기</a>`;
+      const visual = item.posterUrl
+        ? `<img src="${escapeHtml(API + item.posterUrl)}" alt="${escapeHtml(item.title)}" class="class-poster" />`
+        : `<div class="thumb ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</div>`;
+      const info = item.posterUrl
+        ? ""
+        : `<small>${escapeHtml(item.status || "온라인 · 진행중")}</small><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.summary || "")}</p>`;
       return `
       <article class="card">
-        <div class="thumb ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</div>
+        ${visual}
         <div class="card-body">
-          <small>${escapeHtml(item.status || "온라인 · 진행중")}</small>
-          <h3>${escapeHtml(item.title)}</h3>
-          <p>${escapeHtml(item.summary || "")}</p>
+          ${info}
           ${actionHtml}
         </div>
       </article>`;
@@ -1549,7 +1553,7 @@ function adminClassPanel(editing) {
   return `
     <div class="profile-card">
       <h2>${editing ? "Class 수정" : "Class 추가"}</h2>
-      <form class="admin-form" id="class-form" data-file-url="${escapeHtml(editing?.fileUrl || "")}" data-file-name="${escapeHtml(editing?.fileName || "")}">
+      <form class="admin-form" id="class-form" data-file-url="${escapeHtml(editing?.fileUrl || "")}" data-file-name="${escapeHtml(editing?.fileName || "")}" data-poster-url="${escapeHtml(editing?.posterUrl || "")}">
         <div class="admin-form-row">
           <input required name="label" maxlength="16" placeholder="카테고리 (예: AI, CODE)" value="${escapeHtml(editing?.label || "")}" />
           <select name="tone">
@@ -1561,6 +1565,13 @@ function adminClassPanel(editing) {
         <input name="status" placeholder="상태 (예: 온라인 · 진행중)" value="${escapeHtml(editing?.status || "온라인 · 진행중")}" />
         <input required name="title" placeholder="교육 제목" value="${escapeHtml(editing?.title || "")}" />
         <textarea required name="summary" rows="3" placeholder="교육 설명">${escapeHtml(editing?.summary || "")}</textarea>
+        <label style="font-size:14px;color:var(--muted)">교육 포스터 이미지 (선택 — 등록하면 Class 목록 카드에 이미지가 통으로 표시됩니다)</label>
+        <input type="file" name="poster" accept="image/*" />
+        ${
+          editing?.posterUrl
+            ? `<div><img src="${escapeHtml(API + editing.posterUrl)}" alt="포스터 미리보기" style="max-width:160px;border-radius:12px;margin-top:8px;display:block" /><label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin-top:8px"><input type="checkbox" name="removePoster" /> 현재 포스터 이미지 삭제</label></div>`
+            : ""
+        }
         <p class="sub">아래는 신청이 <b>승인 완료</b>된 사람만 마이페이지에서 볼 수 있는 강좌 접속 정보예요.</p>
         <input name="linkUrl" placeholder="강좌 링크 (선택, 예: 줌·강의실 주소)" value="${escapeHtml(editing?.linkUrl || "")}" />
         <input type="file" name="file" />
@@ -1577,7 +1588,7 @@ function adminClassPanel(editing) {
       </form>
     </div>
     <div class="profile-card" style="margin-top:20px"><h2>Class 목록</h2>
-      ${classCache.map((item) => adminItem(item, `${escapeHtml(item.label || "")} · ${escapeHtml(item.summary || "")}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""}`, `<div class="admin-item-actions"><button class="btn btn-line" type="button" data-edit-class="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-class="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 교육이 없습니다.</p>`}
+      ${classCache.map((item) => adminItem(item, `${escapeHtml(item.label || "")} · ${escapeHtml(item.summary || "")}${item.posterUrl ? " · 포스터 등록됨" : ""}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""}`, `<div class="admin-item-actions"><button class="btn btn-line" type="button" data-edit-class="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-class="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 교육이 없습니다.</p>`}
     </div>`;
 }
 
@@ -1864,6 +1875,18 @@ async function saveAdminClass(event) {
       return;
     }
   }
+  let posterUrl = form.dataset.posterUrl || "";
+  if (form.removePoster?.checked) posterUrl = "";
+  const posterInput = form.querySelector('input[name="poster"]');
+  if (posterInput?.files?.[0]) {
+    try {
+      const uploaded = await uploadFile(posterInput.files[0], "/api/admin/classes/upload");
+      posterUrl = uploaded.fileUrl;
+    } catch (error) {
+      window.alert(error.message);
+      return;
+    }
+  }
   await saveItem("classes", id, {
     id,
     label: form.label.value.trim() || "CLASS",
@@ -1871,6 +1894,7 @@ async function saveAdminClass(event) {
     status: form.status.value.trim() || "온라인 · 진행중",
     title: form.title.value.trim(),
     summary: form.summary.value.trim(),
+    posterUrl,
     linkUrl: form.linkUrl.value.trim(),
     fileUrl,
     fileName,

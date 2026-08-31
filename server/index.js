@@ -105,6 +105,7 @@ function classPayload(body, id) {
     status: String(body.status || "온라인 · 진행중").trim(),
     title: String(body.title || "").trim(),
     summary: String(body.summary || "").trim(),
+    posterUrl: String(body.posterUrl || "").trim(),
     linkUrl: String(body.linkUrl || "").trim(),
     fileUrl: String(body.fileUrl || "").trim(),
     fileName: String(body.fileName || "").trim(),
