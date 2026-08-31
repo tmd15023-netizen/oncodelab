@@ -195,6 +195,85 @@ function renderCourses(type = "all") {
     .join("");
 }
 
+const HERO_CAROUSEL_COUNT = 18;
+const HERO_CAROUSEL_INTERVAL_MS = 5000;
+let heroCarouselIndex = 0;
+let heroCarouselTimer = null;
+
+function updateHeroCarousel() {
+  const track = document.getElementById("hero-carousel-track");
+  if (!track) return;
+  const total = HERO_CAROUSEL_COUNT;
+  track.querySelectorAll(".hero-slide").forEach((slide) => {
+    const idx = Number(slide.dataset.index);
+    let diff = idx - heroCarouselIndex;
+    if (diff > total / 2) diff -= total;
+    if (diff < -total / 2) diff += total;
+    const abs = Math.abs(diff);
+    let transform;
+    let opacity;
+    let zIndex;
+    if (abs === 0) {
+      transform = "translateX(0) translateZ(0) rotateY(0deg) scale(1)";
+      opacity = 1;
+      zIndex = 10;
+    } else if (abs === 1) {
+      transform = `translateX(${diff * 230}px) translateZ(-120px) rotateY(${diff * -35}deg) scale(.82)`;
+      opacity = 0.85;
+      zIndex = 5;
+    } else if (abs === 2) {
+      transform = `translateX(${diff * 300}px) translateZ(-260px) rotateY(${diff * -40}deg) scale(.62)`;
+      opacity = 0.5;
+      zIndex = 2;
+    } else {
+      transform = `translateX(${diff * 300}px) translateZ(-400px) rotateY(${diff * -40}deg) scale(.5)`;
+      opacity = 0;
+      zIndex = 0;
+    }
+    slide.style.transform = transform;
+    slide.style.opacity = opacity;
+    slide.style.zIndex = zIndex;
+    slide.style.pointerEvents = abs > 2 ? "none" : "auto";
+  });
+  document.querySelectorAll("#hero-carousel-dots button").forEach((dot, idx) => {
+    dot.classList.toggle("active", idx === heroCarouselIndex);
+  });
+}
+
+function goToHeroSlide(index) {
+  const total = HERO_CAROUSEL_COUNT;
+  heroCarouselIndex = ((index % total) + total) % total;
+  updateHeroCarousel();
+  restartHeroCarouselAutoplay();
+}
+
+function restartHeroCarouselAutoplay() {
+  if (heroCarouselTimer) clearInterval(heroCarouselTimer);
+  heroCarouselTimer = setInterval(() => {
+    heroCarouselIndex = (heroCarouselIndex + 1) % HERO_CAROUSEL_COUNT;
+    updateHeroCarousel();
+  }, HERO_CAROUSEL_INTERVAL_MS);
+}
+
+function initHeroCarousel() {
+  const track = document.getElementById("hero-carousel-track");
+  const dots = document.getElementById("hero-carousel-dots");
+  if (!track || !dots) return;
+  track.innerHTML = Array.from(
+    { length: HERO_CAROUSEL_COUNT },
+    (_, i) => `<div class="hero-slide" data-index="${i}"><img src="images/hero${i + 1}.png" alt="온코드랩 수업 사례 ${i + 1}" loading="lazy" /></div>`,
+  ).join("");
+  dots.innerHTML = Array.from({ length: HERO_CAROUSEL_COUNT }, (_, i) => `<button type="button" data-hero-dot="${i}" aria-label="${i + 1}번째 이미지로 이동"></button>`).join("");
+  track.querySelectorAll(".hero-slide").forEach((slide) => {
+    slide.addEventListener("click", () => goToHeroSlide(Number(slide.dataset.index)));
+  });
+  dots.querySelectorAll("[data-hero-dot]").forEach((dot) => {
+    dot.addEventListener("click", () => goToHeroSlide(Number(dot.dataset.heroDot)));
+  });
+  updateHeroCarousel();
+  restartHeroCarouselAutoplay();
+}
+
 function renderClassPage() {
   const box = document.getElementById("class-list");
   if (!box) return;
@@ -2054,6 +2133,7 @@ function setupLivePolling() {
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     renderCourses();
+    initHeroCarousel();
     setupAuth();
     setupCounselButton();
     await loadSiteData();
