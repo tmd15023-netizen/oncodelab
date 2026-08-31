@@ -460,41 +460,14 @@ h3 { font-size: 22px; }
   padding: 56px 0 28px;
   border-bottom: 1px solid var(--line);
 }
-.philosophy-hero-wrap { padding: 48px 20px; background: #fff; }
-.philosophy-hero-frame { position: relative; max-width: 1200px; margin: 0 auto; }
-.philosophy-hero-photo { width: 100%; height: auto; display: block; border-radius: 24px; }
-.philosophy-hero-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 24px;
+.page-hero.philosophy-hero {
+  background:
+    linear-gradient(180deg, rgba(15, 36, 59, .55), rgba(15, 36, 59, .78)),
+    url("../images/hero.png") center / cover no-repeat;
+  border-bottom: 0;
+  padding: 96px 0;
 }
-.philosophy-hero-card {
-  width: min(480px, 90%);
-  max-height: 100%;
-  overflow-y: auto;
-  background: rgba(255, 255, 255, .94);
-  border-radius: 20px;
-  padding: 28px 30px;
-  box-shadow: 0 24px 48px rgba(15, 36, 59, .25);
-}
-.philosophy-hero-card .kicker { margin-bottom: 8px; }
-.philosophy-hero-card h1 { font-size: clamp(24px, 3vw, 34px); margin-bottom: 16px; }
-.philosophy-hero-card p { margin: 0 0 14px; line-height: 1.7; font-size: 15px; color: var(--text); }
-.philosophy-hero-card p strong { color: var(--navy); }
-.philosophy-hero-card .closing {
-  margin-top: 4px;
-  margin-bottom: 0;
-  padding: 16px 18px;
-  background: var(--bg);
-  border-radius: 14px;
-}
-@media (max-width: 700px) {
-  .philosophy-hero-overlay { position: static; padding: 20px 0 0; }
-  .philosophy-hero-card { width: 100%; max-height: none; box-shadow: none; background: #fff; padding: 0; }
-}
+.page-hero.philosophy-hero h1 { color: #fff; text-shadow: 0 8px 24px rgba(15, 36, 59, .45); }
 .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0; }
 .tab {
   border: 1px solid var(--line);
