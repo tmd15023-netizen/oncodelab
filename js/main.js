@@ -214,26 +214,22 @@ function updateHeroCarousel() {
     let opacity;
     let zIndex;
     if (abs === 0) {
-      transform = "translateX(0) translateZ(0) rotateY(0deg) scale(1)";
+      transform = "translate(-50%,-50%) translateX(0) translateZ(0) rotateY(0deg) scale(1)";
       opacity = 1;
       zIndex = 10;
     } else if (abs === 1) {
-      transform = `translateX(${diff * 230}px) translateZ(-120px) rotateY(${diff * -35}deg) scale(.82)`;
-      opacity = 0.85;
+      transform = `translate(-50%,-50%) translateX(${diff * 260}px) translateZ(-120px) rotateY(${diff * -32}deg) scale(.78)`;
+      opacity = 0.75;
       zIndex = 5;
-    } else if (abs === 2) {
-      transform = `translateX(${diff * 300}px) translateZ(-260px) rotateY(${diff * -40}deg) scale(.62)`;
-      opacity = 0.5;
-      zIndex = 2;
     } else {
-      transform = `translateX(${diff * 300}px) translateZ(-400px) rotateY(${diff * -40}deg) scale(.5)`;
+      transform = `translate(-50%,-50%) translateX(${diff * 260}px) translateZ(-300px) rotateY(${diff * -32}deg) scale(.6)`;
       opacity = 0;
       zIndex = 0;
     }
     slide.style.transform = transform;
     slide.style.opacity = opacity;
     slide.style.zIndex = zIndex;
-    slide.style.pointerEvents = abs > 2 ? "none" : "auto";
+    slide.style.pointerEvents = abs > 1 ? "none" : "auto";
   });
   document.querySelectorAll("#hero-carousel-dots button").forEach((dot, idx) => {
     dot.classList.toggle("active", idx === heroCarouselIndex);

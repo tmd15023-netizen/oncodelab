@@ -211,12 +211,12 @@ img { max-width: 100%; display: block; }
 .hero p strong { color: #fff; font-weight: 800; }
 .hero-cta { margin-top: 36px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 
-.hero-carousel-section { background: var(--navy-deep); padding: 56px 20px 40px; }
+.hero-carousel-section { background: #fff; padding: 56px 20px 40px; }
 .hero-carousel {
   position: relative;
   max-width: 1200px;
   margin: 0 auto;
-  height: 340px;
+  height: 300px;
   perspective: 1400px;
 }
 .hero-carousel-track {
@@ -227,14 +227,13 @@ img { max-width: 100%; display: block; }
 }
 .hero-slide {
   position: absolute;
-  top: 0;
+  top: 50%;
   left: 50%;
-  width: 320px;
-  height: 100%;
-  margin-left: -160px;
+  width: 480px;
+  aspect-ratio: 16 / 9;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, .35);
+  box-shadow: 0 24px 48px rgba(15, 36, 59, .18);
   cursor: pointer;
   transition: transform .6s cubic-bezier(.25, .8, .3, 1), opacity .6s ease;
 }
@@ -252,14 +251,14 @@ img { max-width: 100%; display: block; }
   border-radius: 50%;
   border: 0;
   padding: 0;
-  background: rgba(255, 255, 255, .3);
+  background: var(--line);
   cursor: pointer;
   transition: background .2s ease, transform .2s ease;
 }
-.hero-carousel-dots button.active { background: #fff; transform: scale(1.25); }
+.hero-carousel-dots button.active { background: var(--orange); transform: scale(1.25); }
 @media (max-width: 780px) {
-  .hero-carousel { height: 240px; }
-  .hero-slide { width: 220px; margin-left: -110px; }
+  .hero-carousel { height: 220px; }
+  .hero-slide { width: 300px; }
 }
 
 .section { padding: 84px 0; }
