@@ -182,39 +182,40 @@ img { max-width: 100%; display: block; }
 }
 
 .hero {
-  background: linear-gradient(160deg, var(--navy), var(--navy-deep));
-  color: #fff;
-  min-height: 78vh;
+  background: #fff;
+  color: var(--text);
+  min-height: 50vh;
   display: grid;
   place-items: center;
   text-align: center;
   padding: 80px 20px;
 }
 .hero-copy { max-width: 860px; margin: 0 auto; }
+.hero .kicker { margin-bottom: 14px; }
 .hero h1 {
-  color: #fff;
+  color: var(--navy);
   font-size: clamp(28px, 4.4vw, 46px);
   line-height: 1.35;
   font-weight: 800;
-  text-shadow: 0 8px 24px rgba(15, 36, 59, .45);
 }
+.hero h1 .hero-accent { color: var(--orange); }
 .hero p {
   max-width: 720px;
   margin: 22px auto 0;
   font-size: clamp(16px, 2vw, 20px);
   line-height: 1.8;
-  color: rgba(255,255,255,.88);
+  color: var(--muted);
   font-weight: 500;
 }
-.hero p strong { color: #fff; font-weight: 800; }
+.hero p strong { color: var(--navy); font-weight: 800; }
 .hero-cta { margin-top: 36px; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
 
-.hero-carousel-section { background: #fff; padding: 56px 20px 40px; }
+.hero-carousel-section { background: #fff; padding: 56px 20px 40px; overflow: hidden; }
 .hero-carousel {
   position: relative;
   max-width: 1200px;
   margin: 0 auto;
-  height: 300px;
+  height: 450px;
   perspective: 1400px;
 }
 .hero-carousel-track {
@@ -227,7 +228,7 @@ img { max-width: 100%; display: block; }
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 480px;
+  width: 720px;
   aspect-ratio: 16 / 9;
   border-radius: 18px;
   overflow: hidden;
@@ -255,8 +256,8 @@ img { max-width: 100%; display: block; }
 }
 .hero-carousel-dots button.active { background: var(--orange); transform: scale(1.25); }
 @media (max-width: 780px) {
-  .hero-carousel { height: 220px; }
-  .hero-slide { width: 300px; }
+  .hero-carousel { height: 300px; }
+  .hero-slide { width: 450px; }
 }
 
 .section { padding: 84px 0; }

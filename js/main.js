@@ -218,11 +218,11 @@ function updateHeroCarousel() {
       opacity = 1;
       zIndex = 10;
     } else if (abs === 1) {
-      transform = `translate(-50%,-50%) translateX(${diff * 260}px) translateZ(-120px) rotateY(${diff * -32}deg) scale(.78)`;
+      transform = `translate(-50%,-50%) translateX(${diff * 390}px) translateZ(-120px) rotateY(${diff * -32}deg) scale(.78)`;
       opacity = 0.75;
       zIndex = 5;
     } else {
-      transform = `translate(-50%,-50%) translateX(${diff * 260}px) translateZ(-300px) rotateY(${diff * -32}deg) scale(.6)`;
+      transform = `translate(-50%,-50%) translateX(${diff * 390}px) translateZ(-300px) rotateY(${diff * -32}deg) scale(.6)`;
       opacity = 0;
       zIndex = 0;
     }
