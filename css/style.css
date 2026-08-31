@@ -531,7 +531,22 @@ h3 { font-size: 22px; }
 .card-body { display: flex; flex-direction: column; flex: 1; padding: 10px 18px 18px; }
 .card-body small { color: var(--orange); font-weight: 800; }
 .card-body .btn { margin-top: auto; padding-top: 14px; width: 100%; }
-.class-poster { width: 100%; height: auto; display: block; }
+.poster-modal { position: fixed; inset: 0; z-index: 80; display: none; align-items: center; justify-content: center; padding: 20px; }
+.poster-modal.open { display: flex; }
+.poster-modal-box {
+  position: relative;
+  width: min(420px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 24px;
+  padding: 28px 24px 24px;
+  box-shadow: 0 24px 60px rgba(15, 36, 59, .25);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.poster-modal-box img { width: 100%; height: auto; border-radius: 16px; display: block; }
 
 .article { width: min(780px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0 88px; }
 .article p { line-height: 1.9; color: var(--text); margin: 0 0 18px; }

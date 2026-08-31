@@ -307,25 +307,54 @@ function renderClassPage() {
   box.innerHTML = classCache
     .map((item) => {
       const access = myApplyAccess[item.title];
-      const actionHtml = access
-        ? `<a class="btn btn-orange" href="${escapeHtml(access.linkUrl || (access.fileUrl ? API + access.fileUrl : "#"))}" target="_blank" rel="noopener">수강하기</a>`
-        : `<a class="btn btn-orange" href="contact?classTitle=${encodeURIComponent(item.title)}">신청하기</a>`;
-      const visual = item.posterUrl
-        ? `<img src="${escapeHtml(API + item.posterUrl)}" alt="${escapeHtml(item.title)}" class="class-poster" />`
-        : `<div class="thumb ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</div>`;
-      const info = item.posterUrl
-        ? ""
-        : `<small>${escapeHtml(item.status || "온라인 · 진행중")}</small><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.summary || "")}</p>`;
+      let actionHtml;
+      if (access) {
+        actionHtml = `<a class="btn btn-orange" href="${escapeHtml(access.linkUrl || (access.fileUrl ? API + access.fileUrl : "#"))}" target="_blank" rel="noopener">수강하기</a>`;
+      } else if (item.posterUrl) {
+        actionHtml = `<button type="button" class="btn btn-orange" data-open-poster="${escapeHtml(item.id)}">신청하기</button>`;
+      } else {
+        actionHtml = `<a class="btn btn-orange" href="contact?classTitle=${encodeURIComponent(item.title)}">신청하기</a>`;
+      }
       return `
       <article class="card">
-        ${visual}
+        <div class="thumb ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</div>
         <div class="card-body">
-          ${info}
+          <small>${escapeHtml(item.status || "온라인 · 진행중")}</small>
+          <h3>${escapeHtml(item.title)}</h3>
+          <p>${escapeHtml(item.summary || "")}</p>
           ${actionHtml}
         </div>
       </article>`;
     })
     .join("");
+}
+
+function openPosterModal(item) {
+  const modal = document.getElementById("poster-modal");
+  if (!modal || !item.posterUrl) return;
+  const img = document.getElementById("poster-modal-img");
+  const applyLink = document.getElementById("poster-modal-apply");
+  img.src = API + item.posterUrl;
+  img.alt = item.title;
+  applyLink.href = `contact?classTitle=${encodeURIComponent(item.title)}`;
+  modal.classList.add("open");
+}
+
+function closePosterModal() {
+  document.getElementById("poster-modal")?.classList.remove("open");
+}
+
+function setupPosterModal() {
+  const modal = document.getElementById("poster-modal");
+  if (!modal || modal.dataset.ready) return;
+  modal.dataset.ready = "true";
+  modal.querySelectorAll("[data-poster-close]").forEach((el) => el.addEventListener("click", closePosterModal));
+  document.addEventListener("click", (event) => {
+    const openBtn = event.target.closest("[data-open-poster]");
+    if (!openBtn) return;
+    const item = classCache.find((entry) => entry.id === openBtn.dataset.openPoster);
+    if (item) openPosterModal(item);
+  });
 }
 
 function fieldTypeLabel(type) {
@@ -2181,6 +2210,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     initHeroCarousel();
     setupAuth();
     setupCounselButton();
+    setupPosterModal();
     await loadSiteData();
     renderClassPage();
     fillInquiryOptions();
