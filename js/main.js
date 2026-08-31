@@ -154,6 +154,7 @@ function lockTest(id) {
 }
 
 const COUNSEL_CHAT_URL = "https://open.kakao.com/o/seEpayjh";
+const COUNSEL_PHONE_NUMBERS = ["010-8748-2301", "010-4829-4794"];
 
 function setupCounselButton() {
   const contactSpan = document.querySelector(".topbar .wrap span:last-child");
@@ -161,7 +162,25 @@ function setupCounselButton() {
   contactSpan.dataset.counselReady = "true";
   contactSpan.classList.add("topbar-contact");
   const original = contactSpan.textContent.trim();
-  contactSpan.innerHTML = `<span class="topbar-line">${escapeHtml(original)}<a class="topbar-cta" href="${escapeHtml(COUNSEL_CHAT_URL)}" target="_blank" rel="noopener">상담신청</a></span><small class="topbar-note">수업 진행 중에는 답변이 다소 늦어질 수 있는 점 양해 부탁드립니다.</small>`;
+  const phoneLinks = COUNSEL_PHONE_NUMBERS.map((num) => `<a href="tel:${num.replace(/-/g, "")}">${escapeHtml(num)}</a>`).join("");
+  contactSpan.innerHTML = `<span class="topbar-line">${escapeHtml(original)}
+    <a class="topbar-cta" href="${escapeHtml(COUNSEL_CHAT_URL)}" target="_blank" rel="noopener">채팅상담</a>
+    <span class="topbar-phone-wrap">
+      <button type="button" class="topbar-cta" id="topbar-phone-btn">전화상담</button>
+      <div class="topbar-phone-popup" id="topbar-phone-popup">${phoneLinks}</div>
+    </span>
+  </span><small class="topbar-note">수업 진행 중에는 답변이 다소 늦어질 수 있는 점 양해 부탁드립니다.</small>`;
+  const phoneBtn = document.getElementById("topbar-phone-btn");
+  const phonePopup = document.getElementById("topbar-phone-popup");
+  phoneBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    phonePopup?.classList.toggle("open");
+  });
+  document.addEventListener("click", (event) => {
+    if (phonePopup?.classList.contains("open") && !event.target.closest(".topbar-phone-wrap")) {
+      phonePopup.classList.remove("open");
+    }
+  });
 }
 
 function toggleMenu() {
