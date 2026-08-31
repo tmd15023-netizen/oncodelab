@@ -255,6 +255,23 @@ img { max-width: 100%; display: block; }
   transition: background .2s ease, transform .2s ease;
 }
 .hero-carousel-dots button.active { background: var(--orange); transform: scale(1.25); }
+.hero-carousel-arrow {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 50% !important;
+  background: #fff !important;
+  border: 1px solid var(--line) !important;
+  color: var(--navy);
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .2s ease, border-color .2s ease;
+}
+.hero-carousel-arrow:hover { background: var(--bg) !important; border-color: var(--orange) !important; }
+.hero-carousel-arrow:first-child { margin-right: 6px; }
+.hero-carousel-arrow:last-child { margin-left: 6px; }
 @media (max-width: 780px) {
   .hero-carousel { height: 300px; }
   .hero-slide { width: 450px; }

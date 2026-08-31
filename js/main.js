@@ -259,13 +259,19 @@ function initHeroCarousel() {
     { length: HERO_CAROUSEL_COUNT },
     (_, i) => `<div class="hero-slide" data-index="${i}"><img src="images/hero${i + 1}.png" alt="온코드랩 수업 사례 ${i + 1}" loading="lazy" /></div>`,
   ).join("");
-  dots.innerHTML = Array.from({ length: HERO_CAROUSEL_COUNT }, (_, i) => `<button type="button" data-hero-dot="${i}" aria-label="${i + 1}번째 이미지로 이동"></button>`).join("");
+  const dotButtons = Array.from({ length: HERO_CAROUSEL_COUNT }, (_, i) => `<button type="button" data-hero-dot="${i}" aria-label="${i + 1}번째 이미지로 이동"></button>`).join("");
+  dots.innerHTML = `
+    <button type="button" class="hero-carousel-arrow" data-hero-prev aria-label="이전 이미지">‹</button>
+    ${dotButtons}
+    <button type="button" class="hero-carousel-arrow" data-hero-next aria-label="다음 이미지">›</button>`;
   track.querySelectorAll(".hero-slide").forEach((slide) => {
     slide.addEventListener("click", () => goToHeroSlide(Number(slide.dataset.index)));
   });
   dots.querySelectorAll("[data-hero-dot]").forEach((dot) => {
     dot.addEventListener("click", () => goToHeroSlide(Number(dot.dataset.heroDot)));
   });
+  dots.querySelector("[data-hero-prev]").addEventListener("click", () => goToHeroSlide(heroCarouselIndex - 1));
+  dots.querySelector("[data-hero-next]").addEventListener("click", () => goToHeroSlide(heroCarouselIndex + 1));
   updateHeroCarousel();
   restartHeroCarouselAutoplay();
 }
