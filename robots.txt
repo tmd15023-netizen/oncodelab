@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /admin
+Disallow: /mypage
+
+Sitemap: https://www.oncodelab.co.kr/sitemap.xml
