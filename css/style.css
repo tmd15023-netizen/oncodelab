@@ -463,9 +463,9 @@ h3 { font-size: 22px; }
 .page-hero.philosophy-hero {
   background:
     linear-gradient(180deg, rgba(15, 36, 59, .55), rgba(15, 36, 59, .78)),
-    url("../images/hero.png") center / cover no-repeat;
+    url("../images/hero.png") top / cover no-repeat;
   border-bottom: 0;
-  padding: 96px 0;
+  padding: 96px 0 326px;
 }
 .page-hero.philosophy-hero h1 { color: #fff; text-shadow: 0 8px 24px rgba(15, 36, 59, .45); }
 .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0; }
