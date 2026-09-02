@@ -313,7 +313,13 @@ app.get("/api/blog-reviews/thumbnail", async (req, res) => {
 
 app.get("/api/classes", async (req, res) => {
   const admin = isAdmin(await userFromReq(req));
-  res.json((await col("classes").find({}).toArray()).map((item) => publicClass(item, { includeSecret: admin })));
+  const items = await col("classes").find({}).toArray();
+  items.sort((a, b) => {
+    const aOrder = Number.isFinite(Number(a.order)) ? Number(a.order) : Number.MAX_SAFE_INTEGER;
+    const bOrder = Number.isFinite(Number(b.order)) ? Number(b.order) : Number.MAX_SAFE_INTEGER;
+    return aOrder - bOrder;
+  });
+  res.json(items.map((item) => publicClass(item, { includeSecret: admin })));
 });
 
 app.post("/api/admin/classes/upload", requireAdmin, upload.single("file"), (req, res) => {
@@ -623,6 +629,15 @@ app.post("/api/admin/classes", requireAdmin, async (req, res) => {
   const item = classPayload(req.body);
   if (!item.title) return res.status(400).json({ error: "교육 제목을 입력해 주세요." });
   await saveDoc(res, "classes", null, item, (doc) => publicClass(doc, { includeSecret: true }));
+});
+
+app.put("/api/admin/classes/order", requireAdmin, async (req, res) => {
+  const ids = Array.isArray(req.body.ids) ? req.body.ids.map(String) : [];
+  const uniqueIds = [...new Set(ids)];
+  const count = await col("classes").countDocuments();
+  if (uniqueIds.length !== count) return res.status(400).json({ error: "전체 Class 순서를 다시 확인해 주세요." });
+  await col("classes").bulkWrite(uniqueIds.map((id, order) => ({ updateOne: { filter: { id }, update: { $set: { order } } } })));
+  res.json({ ok: true });
 });
 
 app.put("/api/admin/classes/:id", requireAdmin, async (req, res) => {

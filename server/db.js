@@ -103,6 +103,7 @@ export function publicClass(cls, { includeSecret = false } = {}) {
     title: cls.title,
     summary: cls.summary,
     posterUrl: cls.posterUrl || "",
+    order: Number.isFinite(Number(cls.order)) ? Number(cls.order) : null,
   };
   return includeSecret
     ? { ...base, linkUrl: cls.linkUrl || "", fileUrl: cls.fileUrl || "", fileName: cls.fileName || "", password: cls.password || "" }

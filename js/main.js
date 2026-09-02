@@ -1399,6 +1399,10 @@ function initAdmin() {
       initAdmin();
       return;
     }
+    const moveClassUp = event.target.closest("[data-move-class-up]");
+    if (moveClassUp) return moveClass(moveClassUp.dataset.moveClassUp, -1);
+    const moveClassDown = event.target.closest("[data-move-class-down]");
+    if (moveClassDown) return moveClass(moveClassDown.dataset.moveClassDown, 1);
     const editTest = event.target.closest("[data-edit-test]");
     if (editTest) {
       adminTab = "test";
@@ -1639,7 +1643,7 @@ function adminClassPanel(editing) {
       </form>
     </div>
     <div class="profile-card" style="margin-top:20px"><h2>Class 목록</h2>
-      ${classCache.map((item) => adminItem(item, `${escapeHtml(item.label || "")} · ${escapeHtml(item.summary || "")}${item.posterUrl ? " · 포스터 등록됨" : ""}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""}`, `<div class="admin-item-actions"><button class="btn btn-line" type="button" data-edit-class="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-class="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 교육이 없습니다.</p>`}
+      ${classCache.map((item, index) => adminItem(item, `${escapeHtml(item.label || "")} · ${escapeHtml(item.summary || "")}${item.posterUrl ? " · 포스터 등록됨" : ""}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""}`, `<div class="admin-item-actions"><button class="btn btn-line" type="button" data-move-class-up="${escapeHtml(item.id)}" ${index === 0 ? "disabled" : ""}>↑ 위로</button><button class="btn btn-line" type="button" data-move-class-down="${escapeHtml(item.id)}" ${index === classCache.length - 1 ? "disabled" : ""}>↓ 아래로</button><button class="btn btn-line" type="button" data-edit-class="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-class="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 교육이 없습니다.</p>`}
     </div>`;
 }
 
@@ -1967,6 +1971,23 @@ async function saveAdminClass(event) {
     fileName,
     password: form.password.value.trim(),
   });
+}
+
+async function moveClass(id, direction) {
+  const index = classCache.findIndex((item) => item.id === id);
+  const targetIndex = index + direction;
+  if (index < 0 || targetIndex < 0 || targetIndex >= classCache.length) return;
+  const reordered = [...classCache];
+  [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+  try {
+    await api("/api/admin/classes/order", {
+      method: "PUT",
+      body: JSON.stringify({ ids: reordered.map((item) => item.id) }),
+    });
+    await refreshAccountViews();
+  } catch (error) {
+    window.alert(error.message);
+  }
 }
 
 async function saveAdminApply(event) {
