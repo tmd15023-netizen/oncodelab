@@ -13,8 +13,11 @@ import { connectDb, getDb, publicApplication, publicClass, publicTest, publicUse
 const isServerless = Boolean(process.env.VERCEL);
 const app = express();
 const port = Number(process.env.PORT || 3000);
+const LOGIN_MAX_FAILED_ATTEMPTS = 5;
+const LOGIN_LOCK_MS = 15 * 60 * 1000;
 app.use(cors());
-app.use(express.json());
+// Class poster images are stored as data URLs so they persist on serverless hosts.
+app.use(express.json({ limit: "5mb" }));
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 app.use(async (_req, res, next) => {
   try {
@@ -440,9 +443,44 @@ app.post("/api/auth/signup", async (req, res) => {
 app.post("/api/auth/login", async (req, res) => {
   const email = String(req.body.email || "").trim().toLowerCase();
   const user = await col("users").findOne({ email });
+
+  if (user?.loginLockedUntil && user.loginLockedUntil > new Date()) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((user.loginLockedUntil.getTime() - Date.now()) / 1000));
+    res.set("Retry-After", String(retryAfterSeconds));
+    return res.status(429).json({
+      error: "로그인 시도가 여러 번 실패해 계정이 잠시 잠겼습니다. 15분 후 다시 시도해 주세요.",
+      retryAfterSeconds,
+    });
+  }
+
   if (!user || !(await bcrypt.compare(String(req.body.password || ""), user.passwordHash || ""))) {
+    if (user) {
+      const failedCount = Number(user.loginFailedCount || 0) + 1;
+      if (failedCount >= LOGIN_MAX_FAILED_ATTEMPTS) {
+        const loginLockedUntil = new Date(Date.now() + LOGIN_LOCK_MS);
+        await col("users").updateOne(
+          { email },
+          { $set: { loginFailedCount: 0, loginLockedUntil } },
+        );
+        const retryAfterSeconds = Math.ceil(LOGIN_LOCK_MS / 1000);
+        res.set("Retry-After", String(retryAfterSeconds));
+        return res.status(429).json({
+          error: "로그인 시도가 여러 번 실패해 계정이 15분 동안 잠겼습니다.",
+          retryAfterSeconds,
+        });
+      }
+      await col("users").updateOne(
+        { email },
+        { $set: { loginFailedCount: failedCount }, $unset: { loginLockedUntil: "" } },
+      );
+    }
     return res.status(401).json({ error: "이메일 또는 비밀번호가 올바르지 않습니다." });
   }
+
+  await col("users").updateOne(
+    { email },
+    { $unset: { loginFailedCount: "", loginLockedUntil: "" } },
+  );
   res.json({ token: await createSession(email), user: publicUser(user) });
 });
 
@@ -488,7 +526,13 @@ app.post("/api/auth/reset-password", async (req, res) => {
   if (!user || user.name !== name || digitsOnly(user.phone) !== digitsOnly(phone)) {
     return res.status(401).json({ error: "일치하는 회원 정보를 찾을 수 없습니다." });
   }
-  await col("users").updateOne({ email }, { $set: { passwordHash: await bcrypt.hash(password, 10) } });
+  await col("users").updateOne(
+    { email },
+    {
+      $set: { passwordHash: await bcrypt.hash(password, 10) },
+      $unset: { loginFailedCount: "", loginLockedUntil: "" },
+    },
+  );
   res.json({ ok: true });
 });
 

@@ -34,7 +34,7 @@ let viewApplyId = null;
 let editNoticeId = null;
 let editPostId = null;
 let editFieldId = null;
-let applyFilter = { search: "", status: "all" };
+let applyFilter = { search: "", status: "all", classTitle: "all" };
 let communityTab = "info";
 let editPostState = null;
 let blogReviewCache = [];
@@ -57,6 +57,11 @@ function escapeHtml(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function assetUrl(value) {
+  const url = String(value || "");
+  return /^(data:|https?:\/\/)/i.test(url) ? url : API + url;
 }
 
 function readJson(storage, key, fallback) {
@@ -310,10 +315,8 @@ function renderClassPage() {
       let actionHtml;
       if (access) {
         actionHtml = `<a class="btn btn-orange" href="${escapeHtml(access.linkUrl || (access.fileUrl ? API + access.fileUrl : "#"))}" target="_blank" rel="noopener">수강하기</a>`;
-      } else if (item.posterUrl) {
-        actionHtml = `<button type="button" class="btn btn-orange" data-open-poster="${escapeHtml(item.id)}">신청하기</button>`;
       } else {
-        actionHtml = `<a class="btn btn-orange" href="contact?classTitle=${encodeURIComponent(item.title)}">신청하기</a>`;
+        actionHtml = `<a class="btn btn-orange" href="class-detail?id=${encodeURIComponent(item.id)}">신청하기</a>`;
       }
       return `
       <article class="card">
@@ -329,32 +332,34 @@ function renderClassPage() {
     .join("");
 }
 
-function openPosterModal(item) {
-  const modal = document.getElementById("poster-modal");
-  if (!modal || !item.posterUrl) return;
-  const img = document.getElementById("poster-modal-img");
-  const applyLink = document.getElementById("poster-modal-apply");
-  img.src = API + item.posterUrl;
-  img.alt = item.title;
-  applyLink.href = `contact?classTitle=${encodeURIComponent(item.title)}`;
-  modal.classList.add("open");
-}
+function renderClassDetailPage() {
+  const box = document.getElementById("class-detail");
+  if (!box) return;
+  const id = new URLSearchParams(location.search).get("id") || "";
+  const item = classCache.find((entry) => entry.id === id);
+  if (!item) {
+    box.innerHTML = `<div class="class-detail-empty"><h1>교육을 찾을 수 없습니다.</h1><p>종료되었거나 삭제된 교육입니다.</p><a class="btn btn-line" href="class">Class 목록으로</a></div>`;
+    return;
+  }
 
-function closePosterModal() {
-  document.getElementById("poster-modal")?.classList.remove("open");
-}
-
-function setupPosterModal() {
-  const modal = document.getElementById("poster-modal");
-  if (!modal || modal.dataset.ready) return;
-  modal.dataset.ready = "true";
-  modal.querySelectorAll("[data-poster-close]").forEach((el) => el.addEventListener("click", closePosterModal));
-  document.addEventListener("click", (event) => {
-    const openBtn = event.target.closest("[data-open-poster]");
-    if (!openBtn) return;
-    const item = classCache.find((entry) => entry.id === openBtn.dataset.openPoster);
-    if (item) openPosterModal(item);
-  });
+  document.title = `${item.title} | Oncodelab`;
+  box.innerHTML = `
+    <div class="class-detail-head">
+      <a class="class-detail-back" href="class">← Class 목록</a>
+      <p class="kicker">${escapeHtml(item.label || "CLASS")}</p>
+      <h1>${escapeHtml(item.title)}</h1>
+      <p class="class-detail-status">${escapeHtml(item.status || "온라인 · 진행중")}</p>
+      <p class="class-detail-summary">${escapeHtml(item.summary || "")}</p>
+    </div>
+    ${item.posterUrl
+      ? `<figure class="class-detail-poster"><img src="${escapeHtml(assetUrl(item.posterUrl))}" alt="${escapeHtml(item.title)} 교육 안내 포스터" /></figure>`
+      : `<div class="class-detail-no-poster">등록된 교육 안내 포스터가 없습니다.</div>`}
+    <section class="class-detail-apply">
+      <h2>교육 신청</h2>
+      <div id="class-detail-apply-box"></div>
+      <div id="success" class="success"></div>
+    </section>`;
+  renderClassAttendanceApply(document.getElementById("class-detail-apply-box"), item.title);
 }
 
 function fieldTypeLabel(type) {
@@ -417,6 +422,7 @@ function filteredApplyCache() {
   const q = applyFilter.search.trim().toLowerCase();
   return applyCache.filter((item) => {
     if (isInquiryApply(item)) return false;
+    if (applyFilter.classTitle !== "all" && item.type !== applyFilter.classTitle) return false;
     if (applyFilter.status !== "all" && (item.status || "pending") !== applyFilter.status) return false;
     if (!q) return true;
     const haystack = [applyDisplayName(item), item.type, applyFieldsSummary(item), item.note].join(" ").toLowerCase();
@@ -1458,6 +1464,12 @@ function initAdmin() {
       initAdmin();
       return;
     }
+    const classFilterBtn = event.target.closest("[data-apply-class]");
+    if (classFilterBtn) {
+      applyFilter.classTitle = classFilterBtn.dataset.applyClass;
+      initAdmin();
+      return;
+    }
     if (event.target.closest("[data-cancel-class]")) {
       editClassId = null;
       adminNav = "class";
@@ -1598,7 +1610,7 @@ function adminClassPanel(editing) {
         <input type="file" name="poster" accept="image/*" />
         ${
           editing?.posterUrl
-            ? `<div><img src="${escapeHtml(API + editing.posterUrl)}" alt="포스터 미리보기" style="max-width:160px;border-radius:12px;margin-top:8px;display:block" /><label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin-top:8px"><input type="checkbox" name="removePoster" /> 현재 포스터 이미지 삭제</label></div>`
+            ? `<div><img src="${escapeHtml(assetUrl(editing.posterUrl))}" alt="포스터 미리보기" style="max-width:160px;border-radius:12px;margin-top:8px;display:block" /><label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted);margin-top:8px"><input type="checkbox" name="removePoster" /> 현재 포스터 이미지 삭제</label></div>`
             : ""
         }
         <p class="sub">아래는 신청이 <b>승인 완료</b>된 사람만 마이페이지에서 볼 수 있는 강좌 접속 정보예요.</p>
@@ -1764,6 +1776,9 @@ function applyEditFormHtml(editing) {
 }
 
 function adminApplyPanel(editing) {
+  if (applyFilter.classTitle !== "all" && !classCache.some((item) => item.title === applyFilter.classTitle)) {
+    applyFilter.classTitle = "all";
+  }
   if (!editing) {
     const viewed = applyCache.find((item) => item.id === viewApplyId && !isInquiryApply(item));
     if (viewed) return applyDetailHtml(viewed);
@@ -1772,8 +1787,17 @@ function adminApplyPanel(editing) {
     ${editing ? applyEditFormHtml(editing) : ""}
     <div class="profile-card" style="margin-top:20px">
       <h2>Class 신청 내역</h2>
+      <p class="admin-filter-label">강좌별 신청자</p>
+      <div class="tabs class-filter-tabs">
+        <button type="button" class="tab ${applyFilter.classTitle === "all" ? "active" : ""}" data-apply-class="all">전체</button>
+        ${classCache.map((item) => {
+          const count = applyCache.filter((apply) => !isInquiryApply(apply) && apply.type === item.title).length;
+          return `<button type="button" class="tab ${applyFilter.classTitle === item.title ? "active" : ""}" data-apply-class="${escapeHtml(item.title)}">${escapeHtml(item.title)} <span class="tab-count">${count}</span></button>`;
+        }).join("")}
+      </div>
       <input type="text" id="apply-search" placeholder="이름·연락처·메모 검색" value="${escapeHtml(applyFilter.search)}" style="width:100%;margin-top:12px" />
-      <div class="tabs" style="margin:14px 0">
+      <p class="admin-filter-label">처리 상태</p>
+      <div class="tabs status-filter-tabs">
         ${APPLY_STATUS_TABS.map((tab) => `<button type="button" class="tab ${applyFilter.status === tab.id ? "active" : ""}" data-apply-filter="${tab.id}">${tab.label}</button>`).join("")}
       </div>
       <div id="apply-results">${applyResultsListHtml()}</div>
@@ -1909,8 +1933,7 @@ async function saveAdminClass(event) {
   const posterInput = form.querySelector('input[name="poster"]');
   if (posterInput?.files?.[0]) {
     try {
-      const uploaded = await uploadFile(posterInput.files[0], "/api/admin/classes/upload");
-      posterUrl = uploaded.fileUrl;
+      posterUrl = await posterFileToDataUrl(posterInput.files[0]);
     } catch (error) {
       window.alert(error.message);
       return;
@@ -2004,6 +2027,17 @@ async function uploadFile(file, endpoint) {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "파일 업로드에 실패했습니다.");
   return data;
+}
+
+function posterFileToDataUrl(file) {
+  if (!file.type.startsWith("image/")) return Promise.reject(new Error("포스터는 이미지 파일만 등록할 수 있습니다."));
+  if (file.size > 3 * 1024 * 1024) return Promise.reject(new Error("포스터 이미지는 3MB 이하로 등록해 주세요."));
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("포스터 이미지를 읽지 못했습니다."));
+    reader.readAsDataURL(file);
+  });
 }
 
 async function saveAdminTest(event) {
@@ -2210,9 +2244,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     initHeroCarousel();
     setupAuth();
     setupCounselButton();
-    setupPosterModal();
     await loadSiteData();
     renderClassPage();
+    renderClassDetailPage();
     fillInquiryOptions();
     renderApplyFields();
     initClassSelection();

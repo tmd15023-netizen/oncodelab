@@ -6,6 +6,7 @@
     { "source": "/about", "destination": "/about.html" },
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/class", "destination": "/class.html" },
+    { "source": "/class-detail", "destination": "/class-detail.html" },
     { "source": "/community", "destination": "/community.html" },
     { "source": "/contact", "destination": "/contact.html" },
     { "source": "/diagnosis", "destination": "/diagnosis.html" },
