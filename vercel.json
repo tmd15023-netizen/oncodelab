@@ -4,6 +4,7 @@
     { "source": "/api/:path*", "destination": "/api/index" },
     { "source": "/uploads/:path*", "destination": "/api/index" },
     { "source": "/about", "destination": "/about.html" },
+    { "source": "/activity", "destination": "/activity.html" },
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/class", "destination": "/class.html" },
     { "source": "/class-detail", "destination": "/class-detail.html" },
