@@ -412,6 +412,14 @@ function applyFieldsSummary(item) {
     .join(" · ");
 }
 
+function applyListContactSummary(item) {
+  return applyFieldCache
+    .filter((field) => field.type === "tel" || field.type === "email")
+    .map((field) => item.values?.[field.id])
+    .filter(Boolean)
+    .join(" · ");
+}
+
 // "Class 신청자"는 실제 개설된 강좌를 신청한 사람, "수업신청내역"은 상담/문의(수업 의뢰)를 남긴 사람.
 const INQUIRY_TYPE = "수업 의뢰";
 function isInquiryApply(item) {
@@ -1704,7 +1712,11 @@ async function markApplyViewed(id) {
 }
 
 function applyRowHtml(item) {
-  const summary = `${formatAdminDate(item.createdAt)} · ${escapeHtml(item.type || "")} · ${escapeHtml(applyFieldsSummary(item))}${item.note ? ` · 메모: ${escapeHtml(item.note)}` : ""}`;
+  const contact = applyListContactSummary(item);
+  const summary = [formatAdminDate(item.createdAt), item.type, contact]
+    .filter(Boolean)
+    .map(escapeHtml)
+    .join(" · ");
   const approved = item.status === "done";
   return `<div class="admin-item" data-view-apply="${escapeHtml(item.id)}" style="cursor:pointer">
     <div><b class="${isApplyUnread(item) ? "apply-unread" : ""}">${escapeHtml(applyDisplayName(item))}</b><p>${summary}</p></div>
