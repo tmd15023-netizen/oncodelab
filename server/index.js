@@ -172,6 +172,7 @@ function applyPayload(body, id, fields) {
   for (const field of fields) values[field.id] = String(body[field.id] || "").trim();
   return {
     id: id || String(body.id || makeId("apply")),
+    classId: String(body.classId || "").trim(),
     type: String(body.type || "").trim(),
     values,
     status,
@@ -330,16 +331,21 @@ app.get("/api/my-applications", requireAuth, async (req, res) => {
   const myPhone = String(req.user.phone || "").replace(/\D/g, "");
   const classes = await col("classes").find({}).toArray();
   const all = await col("applications").find({}).sort({ createdAt: -1 }).toArray();
+  const comparableTitle = (value) => String(value || "").replace(/^\s*\(\s*\d+\s*기\s*\)\s*/, "").trim();
   const mine = all
     .filter((item) => {
       if (!phoneField || !myPhone) return false;
       return String(item.values?.[phoneField.id] || "").replace(/\D/g, "") === myPhone;
     })
     .map((item) => {
-      const cls = classes.find((entry) => entry.title === item.type);
+      const cls =
+        classes.find((entry) => item.classId && entry.id === item.classId) ||
+        classes.find((entry) => entry.title === item.type) ||
+        classes.find((entry) => comparableTitle(entry.title) === comparableTitle(item.type));
       const approved = item.status === "done" && cls;
       return {
         id: item.id,
+        classId: item.classId || cls?.id || "",
         type: item.type,
         status: item.status,
         createdAt: item.createdAt,
@@ -563,7 +569,7 @@ app.put("/api/admin/applications/:id", requireAdmin, async (req, res) => {
   const current = await col("applications").findOne({ id: req.params.id });
   const fields = await col("applyFields").find({}).sort({ order: 1 }).toArray();
   // 상태 변경/수정 등 내용이 바뀔 때마다 다시 "안읽음"으로 표시해 다른 관리자도 변경을 알아챌 수 있게 한다.
-  const item = { ...applyPayload({ ...req.body, createdAt: current?.createdAt }, req.params.id, fields), note: String(req.body.note || "").trim(), viewedAt: null };
+  const item = { ...applyPayload({ ...req.body, classId: req.body.classId || current?.classId || "", createdAt: current?.createdAt }, req.params.id, fields), note: String(req.body.note || "").trim(), viewedAt: null };
   if (!item.type) return res.status(400).json({ error: "신청 교육을 선택해 주세요." });
   await saveDoc(res, "applications", req.params.id, item, publicApplication, "신청 내역을 찾을 수 없습니다.");
 });

@@ -133,7 +133,9 @@ async function loadSiteData() {
   myApplyAccess = {};
   if (myApplications) {
     for (const item of myApplications) {
-      if (item.classAccess) myApplyAccess[item.type] = item.classAccess;
+      if (!item.classAccess) continue;
+      if (item.classId) myApplyAccess[item.classId] = item.classAccess;
+      myApplyAccess[item.type] = item.classAccess;
     }
   }
 }
@@ -311,7 +313,7 @@ function renderClassPage() {
   box.classList.add("cards");
   box.innerHTML = classCache
     .map((item) => {
-      const access = myApplyAccess[item.title];
+      const access = myApplyAccess[item.id] || myApplyAccess[item.title];
       let actionHtml;
       if (access) {
         actionHtml = `<a class="btn btn-orange" href="${escapeHtml(access.linkUrl || (access.fileUrl ? API + access.fileUrl : "#"))}" target="_blank" rel="noopener">수강하기</a>`;
@@ -359,7 +361,7 @@ function renderClassDetailPage() {
       <div id="class-detail-apply-box"></div>
       <div id="success" class="success"></div>
     </section>`;
-  renderClassAttendanceApply(document.getElementById("class-detail-apply-box"), item.title);
+  renderClassAttendanceApply(document.getElementById("class-detail-apply-box"), item.title, item.id);
 }
 
 function fieldTypeLabel(type) {
@@ -464,7 +466,7 @@ function initClassSelection() {
   else renderClassInquiryForm(box);
 }
 
-function renderClassAttendanceApply(box, classTitle) {
+function renderClassAttendanceApply(box, classTitle, classId = "") {
   const me = getSession();
   if (!me) {
     box.innerHTML = noticeCard("로그인이 필요합니다", "Class 신청은 로그인 후 이용할 수 있습니다.", `<p><a class="btn btn-orange" href="#" data-auth="login">로그인</a></p>`);
@@ -478,13 +480,13 @@ function renderClassAttendanceApply(box, classTitle) {
     <p class="sub" style="margin-bottom:16px"><b>${escapeHtml(classTitle)}</b> 강좌에 신청합니다.</p>
     <button class="btn btn-orange" type="button" id="class-apply-btn">신청하기</button>
   `;
-  document.getElementById("class-apply-btn")?.addEventListener("click", () => submitClassApply(classTitle));
+  document.getElementById("class-apply-btn")?.addEventListener("click", () => submitClassApply(classTitle, classId));
 }
 
-async function submitClassApply(classTitle) {
+async function submitClassApply(classTitle, classId = "") {
   const me = getSession();
   if (!me || !classTitle) return;
-  const body = { kind: "class", type: classTitle };
+  const body = { kind: "class", type: classTitle, classId };
   applyFieldCache.forEach((field, idx) => {
     if (field.type === "tel") body[field.id] = me.phone || "";
     else if (field.type === "email") body[field.id] = me.email || "";
@@ -1773,6 +1775,7 @@ function applyEditFormHtml(editing) {
   return `<div class="profile-card">
     <h2>${isInquiryApply(editing) ? "교육신청/문의 수정" : "Class 신청 수정"}</h2>
     <form class="admin-form" id="apply-form">
+      <input type="hidden" name="classId" value="${escapeHtml(editing?.classId || "")}" />
       ${applyFieldCache.map((field) => applyFieldInputHtml(field, editing?.values?.[field.id] || "")).join("")}
       <div class="admin-form-row">
         <select name="type">${classOptions(editing?.type)}</select>
@@ -1979,7 +1982,7 @@ async function saveAdminApply(event) {
 async function quickUpdateApplyStatus(id, status) {
   const item = applyCache.find((entry) => entry.id === id);
   if (!item) return;
-  await saveItem("applications", id, { ...item.values, type: item.type, note: item.note || "", status });
+  await saveItem("applications", id, { ...item.values, classId: item.classId || "", type: item.type, note: item.note || "", status });
 }
 
 async function saveAdminField(event) {

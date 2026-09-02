@@ -125,6 +125,7 @@ export function publicApplication(item) {
   if (!item) return null;
   return {
     id: item.id,
+    classId: item.classId || "",
     type: item.type,
     values: item.values || {},
     note: item.note || "",
