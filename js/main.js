@@ -23,6 +23,7 @@ let userCache = [];
 let applyCache = [];
 let noticeCache = [];
 let postCache = [];
+let activityCache = [];
 let applyFieldCache = [];
 let myApplyAccess = {};
 let adminTab = "overview";
@@ -33,6 +34,8 @@ let editApplyId = null;
 let viewApplyId = null;
 let editNoticeId = null;
 let editPostId = null;
+let editActivityId = null;
+let activityCategory = "전체";
 let editFieldId = null;
 let applyFilter = { search: "", status: "all", classTitle: "all" };
 let communityTab = "info";
@@ -113,11 +116,12 @@ async function loadSiteData() {
   const safe = (promise) => promise.catch((error) => { console.warn(error.message); return null; });
   const admin = isAdmin();
   const loggedIn = Boolean(getSession());
-  const [classes, tests, notices, posts, applyFields, users, applications, myApplications] = await Promise.all([
+  const [classes, tests, notices, posts, activities, applyFields, users, applications, myApplications] = await Promise.all([
     safe(api("/api/classes")),
     safe(api("/api/tests")),
     safe(api("/api/notices")),
     safe(api("/api/posts")),
+    safe(api("/api/activities")),
     safe(api("/api/apply-fields")),
     admin ? safe(api("/api/admin/users")) : Promise.resolve(null),
     admin ? safe(api("/api/admin/applications")) : Promise.resolve(null),
@@ -127,6 +131,7 @@ async function loadSiteData() {
   if (tests) testCache = tests;
   if (notices) noticeCache = notices;
   if (posts) postCache = posts;
+  if (activities) activityCache = activities;
   if (applyFields) applyFieldCache = applyFields;
   if (users) userCache = users;
   if (applications) applyCache = applications;
@@ -656,6 +661,7 @@ async function refreshAccountViews() {
   renderClassPage();
   fillInquiryOptions();
   renderApplyFields();
+  renderActivities();
   initClassSelection();
   initNotices();
   initCommunity();
@@ -1030,6 +1036,22 @@ function initCommunity() {
   });
 }
 
+function renderActivities() {
+  const box = document.getElementById("activity-page");
+  if (!box) return;
+  const id = new URLSearchParams(location.search).get("id");
+  if (id) {
+    const item = activityCache.find((entry) => entry.id === id);
+    box.innerHTML = item ? `<article class="activity-detail"><a class="class-detail-back" href="activity">← 교육활동 목록</a><p class="kicker">${escapeHtml(item.category)}</p><h1>${escapeHtml(item.title)}</h1><p class="activity-meta">${escapeHtml([item.organization, item.period].filter(Boolean).join(" · "))}</p><p class="activity-description">${escapeHtml(item.description)}</p>${item.coverUrl ? `<img class="activity-detail-cover" src="${escapeHtml(assetUrl(item.coverUrl))}" alt="${escapeHtml(item.title)}" />` : ""}<div class="padlet-frame-wrap"><iframe src="${escapeHtml(item.padletUrl)}" title="${escapeHtml(item.title)} 패들렛" loading="lazy" allow="camera;microphone;geolocation;display-capture;clipboard-write"></iframe></div><p class="activity-external"><a class="btn btn-line" href="${escapeHtml(item.padletUrl)}" target="_blank" rel="noopener">패들렛 새 창에서 보기</a></p></article>` : `<div class="class-detail-empty"><h2>교육활동을 찾을 수 없습니다.</h2><a class="btn btn-line" href="activity">목록으로</a></div>`;
+    return;
+  }
+  const categories = ["전체", ...new Set(activityCache.map((item) => item.category).filter(Boolean))];
+  if (!categories.includes(activityCategory)) activityCategory = "전체";
+  const list = activityCategory === "전체" ? activityCache : activityCache.filter((item) => item.category === activityCategory);
+  box.innerHTML = `<div class="activity-toolbar">${categories.map((category) => `<button type="button" class="tab ${category === activityCategory ? "active" : ""}" data-activity-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join("")}</div><div class="activity-grid">${list.map((item) => `<a class="activity-card" href="activity?id=${encodeURIComponent(item.id)}"><div class="activity-cover">${item.coverUrl ? `<img src="${escapeHtml(assetUrl(item.coverUrl))}" alt="" loading="lazy" />` : `<span>${escapeHtml(item.category)}</span>`}</div><div class="activity-card-body"><small>${escapeHtml(item.category)}</small><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml([item.organization, item.period].filter(Boolean).join(" · "))}</p><b>작품 보기 →</b></div></a>`).join("") || `<p class="sub">등록된 교육활동이 없습니다.</p>`}</div>`;
+  box.querySelectorAll("[data-activity-category]").forEach((button) => button.addEventListener("click", () => { activityCategory = button.dataset.activityCategory; renderActivities(); }));
+}
+
 function setupAuth() {
   const actions = document.querySelector(".header-actions");
   if (actions && !actions.querySelector("[data-auth='login']")) {
@@ -1318,10 +1340,12 @@ function initAdmin() {
   const editingApply = applyCache.find((item) => item.id === editApplyId);
   const editingNotice = noticeCache.find((item) => item.id === editNoticeId);
   const editingPost = postCache.find((item) => item.id === editPostId);
+  const editingActivity = activityCache.find((item) => item.id === editActivityId);
   const editingField = applyFieldCache.find((item) => item.id === editFieldId);
   const tabs = [
     { id: "overview", label: "대시보드" },
     { id: "class", label: "Class 관리" },
+    { id: "activity", label: "교육활동" },
     { id: "apply", label: "Class 신청자" },
     { id: "test", label: "TEST" },
     { id: "notice", label: "공지사항" },
@@ -1359,6 +1383,7 @@ function initAdmin() {
     <main class="dash-main">
       ${adminTab === "overview" ? adminOverview() : ""}
       ${adminTab === "class" ? adminClassPanel(editingClass) : ""}
+      ${adminTab === "activity" ? adminActivityPanel(editingActivity) : ""}
       ${adminTab === "test" ? adminTestPanel(editingTest) : ""}
       ${adminTab === "apply" ? adminApplyPanel(editingApply) : ""}
       ${adminTab === "fields" ? adminFieldsPanel(editingField) : ""}
@@ -1387,6 +1412,7 @@ function initAdmin() {
       }
       if (adminTab !== "notice") editNoticeId = null;
       if (adminTab !== "community") editPostId = null;
+      if (adminTab !== "activity") editActivityId = null;
       if (adminTab !== "fields") editFieldId = null;
       initAdmin();
       return;
@@ -1460,6 +1486,12 @@ function initAdmin() {
       initAdmin();
       return;
     }
+    const editActivity = event.target.closest("[data-edit-activity]");
+    if (editActivity) { adminTab = "activity"; adminNav = "activity"; editActivityId = editActivity.dataset.editActivity; initAdmin(); return; }
+    const moveActivityUp = event.target.closest("[data-move-activity-up]");
+    if (moveActivityUp) return moveActivity(moveActivityUp.dataset.moveActivityUp, -1);
+    const moveActivityDown = event.target.closest("[data-move-activity-down]");
+    if (moveActivityDown) return moveActivity(moveActivityDown.dataset.moveActivityDown, 1);
     const editField = event.target.closest("[data-edit-field]");
     if (editField) {
       adminTab = "fields";
@@ -1505,6 +1537,7 @@ function initAdmin() {
       editPostId = null;
       initAdmin();
     }
+    if (event.target.closest("[data-cancel-activity]")) { editActivityId = null; initAdmin(); }
     if (event.target.closest("[data-cancel-field]")) {
       editFieldId = null;
       initAdmin();
@@ -1519,6 +1552,8 @@ function initAdmin() {
     if (delNotice) deleteAdminItem("notices", delNotice.dataset.deleteNotice, noticeCache);
     const delPost = event.target.closest("[data-delete-post]");
     if (delPost) deleteAdminItem("posts", delPost.dataset.deletePost, postCache);
+    const delActivity = event.target.closest("[data-delete-activity]");
+    if (delActivity) deleteAdminItem("activities", delActivity.dataset.deleteActivity, activityCache);
     const delField = event.target.closest("[data-delete-field]");
     if (delField) deleteAdminItem("apply-fields", delField.dataset.deleteField, applyFieldCache);
     const roleBtn = event.target.closest("[data-role-email]");
@@ -1531,6 +1566,7 @@ function initAdmin() {
   box.querySelector("#apply-form")?.addEventListener("submit", (event) => saveAdminApply(event));
   box.querySelector("#notice-form")?.addEventListener("submit", (event) => saveAdminNotice(event));
   box.querySelector("#post-form")?.addEventListener("submit", (event) => saveAdminPost(event));
+  box.querySelector("#activity-form")?.addEventListener("submit", (event) => saveAdminActivity(event));
   box.querySelector("#field-form")?.addEventListener("submit", (event) => saveAdminField(event));
   box.querySelector("#apply-search")?.addEventListener("input", (event) => {
     applyFilter.search = event.target.value;
@@ -1874,6 +1910,21 @@ function adminPostPanel(editing) {
     </div>`;
 }
 
+function adminActivityPanel(editing) {
+  return `<div class="profile-card"><h2>${editing ? "교육활동 수정" : "교육활동 추가"}</h2>
+    <form class="admin-form" id="activity-form" data-cover-url="${escapeHtml(editing?.coverUrl || "")}">
+      <div class="admin-form-row"><input required name="category" placeholder="카테고리 (예: 생성형 AI)" value="${escapeHtml(editing?.category || "")}" /><input required name="title" placeholder="활동명" value="${escapeHtml(editing?.title || "")}" /></div>
+      <div class="admin-form-row"><input name="organization" placeholder="학교·기관·학년" value="${escapeHtml(editing?.organization || "")}" /><input name="period" placeholder="교육 기간" value="${escapeHtml(editing?.period || "")}" /></div>
+      <textarea name="description" rows="4" placeholder="교육활동 소개">${escapeHtml(editing?.description || "")}</textarea>
+      <label class="apply-field-label">대표 이미지 (5MB 이하)</label><input type="file" name="cover" accept="image/*" />
+      ${editing?.coverUrl ? `<label class="privacy-agree"><input type="checkbox" name="removeCover" /> 현재 대표 이미지 삭제</label>` : ""}
+      <input required type="url" name="padletUrl" placeholder="Padlet 임베드 주소 (https://padlet.com/embed/...)" value="${escapeHtml(editing?.padletUrl || "")}" />
+      <label class="privacy-agree"><input type="checkbox" name="published" ${!editing || editing.published ? "checked" : ""} /> 홈페이지에 공개</label>
+      <div class="admin-form-actions"><button class="btn btn-green" type="submit">${editing ? "수정 저장" : "활동 추가"}</button>${editing ? `<button class="btn btn-line" type="button" data-cancel-activity>취소</button>` : ""}</div>
+    </form></div>
+    <div class="profile-card" style="margin-top:20px"><h2>교육활동 목록</h2>${activityCache.map((item, index) => adminItem(item, `${escapeHtml(item.category)} · ${escapeHtml(item.organization || "기관 미입력")} · ${item.published ? "공개" : "비공개"}`, `<div class="admin-item-actions"><button class="btn btn-line" type="button" data-move-activity-up="${escapeHtml(item.id)}" ${index === 0 ? "disabled" : ""}>↑ 위로</button><button class="btn btn-line" type="button" data-move-activity-down="${escapeHtml(item.id)}" ${index === activityCache.length - 1 ? "disabled" : ""}>↓ 아래로</button><button class="btn btn-line" type="button" data-edit-activity="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-activity="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 교육활동이 없습니다.</p>`}</div>`;
+}
+
 function adminUsersPanel() {
   const rows = userCache.length
     ? userCache
@@ -2142,6 +2193,31 @@ async function saveAdminPost(event) {
   });
 }
 
+async function saveAdminActivity(event) {
+  event.preventDefault();
+  const form = event.target;
+  const id = editActivityId;
+  let coverUrl = form.dataset.coverUrl || "";
+  if (form.removeCover?.checked) coverUrl = "";
+  const coverFile = form.cover?.files?.[0];
+  if (coverFile) {
+    try { coverUrl = await posterFileToDataUrl(coverFile); }
+    catch (error) { window.alert(error.message); return; }
+  }
+  editActivityId = null; adminTab = "activity"; adminNav = "activity";
+  await saveItem("activities", id, { id, category: form.category.value.trim(), title: form.title.value.trim(), organization: form.organization.value.trim(), period: form.period.value.trim(), description: form.description.value.trim(), coverUrl, padletUrl: form.padletUrl.value.trim(), published: form.published.checked });
+}
+
+async function moveActivity(id, direction) {
+  const index = activityCache.findIndex((item) => item.id === id);
+  const targetIndex = index + direction;
+  if (index < 0 || targetIndex < 0 || targetIndex >= activityCache.length) return;
+  const reordered = [...activityCache];
+  [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+  try { await api("/api/admin/activities/order", { method: "PUT", body: JSON.stringify({ ids: reordered.map((item) => item.id) }) }); await refreshAccountViews(); }
+  catch (error) { window.alert(error.message); }
+}
+
 async function deleteAdminItem(kind, id, list) {
   const item = list.find((entry) => entry.id === id);
   if (!item) return;
@@ -2155,6 +2231,7 @@ async function deleteAdminItem(kind, id, list) {
     if (kind === "applications" && viewApplyId === id) viewApplyId = null;
     if (kind === "notices" && editNoticeId === id) editNoticeId = null;
     if (kind === "posts" && editPostId === id) editPostId = null;
+    if (kind === "activities" && editActivityId === id) editActivityId = null;
     if (kind === "apply-fields" && editFieldId === id) editFieldId = null;
     await refreshAccountViews();
   } catch (error) {
@@ -2252,6 +2329,7 @@ function setupLivePolling() {
     { containerId: "test-list", path: "/api/tests", setCache: (v) => (testCache = v), render: initTests },
     { containerId: "notice-list", path: "/api/notices", setCache: (v) => (noticeCache = v), render: initNotices },
     { containerId: "community", path: "/api/posts", setCache: (v) => (postCache = v), render: initCommunity },
+    { containerId: "activity-page", path: "/api/activities", setCache: (v) => (activityCache = v), render: renderActivities },
   ].filter((watcher) => document.getElementById(watcher.containerId));
   if (!watchers.length) return;
 
@@ -2295,6 +2373,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       renderHomeReviews();
     });
     initCommunity();
+    renderActivities();
     setupLivePolling();
   } finally {
     hidePageLoading();
