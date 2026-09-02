@@ -8,7 +8,7 @@ import express from "express";
 import multer from "multer";
 import bcrypt from "bcryptjs";
 import { XMLParser } from "fast-xml-parser";
-import { connectDb, getDb, publicApplication, publicClass, publicTest, publicUser, publicNotice, publicPost, publicActivity, publicApplyField } from "./db.js";
+import { connectDb, getDb, publicApplication, publicClass, publicTest, publicUser, publicNotice, publicPost, publicApplyField } from "./db.js";
 
 const isServerless = Boolean(process.env.VERCEL);
 const app = express();
@@ -126,21 +126,6 @@ function testPayload(body, id) {
     linkUrl: String(body.linkUrl || "").trim(),
     fileUrl: String(body.fileUrl || "").trim(),
     fileName: String(body.fileName || "").trim(),
-  };
-}
-
-function activityPayload(body, id) {
-  return {
-    id: id || String(body.id || makeId("activity")),
-    category: String(body.category || "기타").trim(),
-    title: String(body.title || "").trim(),
-    organization: String(body.organization || "").trim(),
-    period: String(body.period || "").trim(),
-    description: String(body.description || "").trim(),
-    coverUrl: String(body.coverUrl || "").trim(),
-    padletUrl: String(body.padletUrl || "").trim(),
-    published: body.published === true || body.published === "true" || body.published === "on",
-    createdAt: body.createdAt || new Date(),
   };
 }
 
@@ -511,14 +496,6 @@ app.post("/api/auth/login", async (req, res) => {
   res.json({ token: await createSession(email), user: publicUser(user) });
 });
 
-app.get("/api/activities", async (req, res) => {
-  const admin = isAdmin(await userFromReq(req));
-  const query = admin ? {} : { published: { $ne: false } };
-  const items = await col("activities").find(query).toArray();
-  items.sort((a, b) => (Number.isFinite(Number(a.order)) ? Number(a.order) : Number.MAX_SAFE_INTEGER) - (Number.isFinite(Number(b.order)) ? Number(b.order) : Number.MAX_SAFE_INTEGER));
-  res.json(items.map(publicActivity));
-});
-
 app.post("/api/auth/logout", async (req, res) => {
   const token = bearer(req);
   if (token) await col("sessions").deleteOne({ token });
@@ -719,34 +696,6 @@ app.post("/api/admin/posts", requireAdmin, async (req, res) => {
   const item = postPayload(req.body);
   if (!item.title || !item.body) return res.status(400).json({ error: "제목과 내용을 입력해 주세요." });
   await saveDoc(res, "posts", null, item, publicPost);
-});
-
-app.post("/api/admin/activities", requireAdmin, async (req, res) => {
-  const item = activityPayload(req.body);
-  if (!item.title || !item.padletUrl) return res.status(400).json({ error: "활동명과 패들렛 주소를 입력해 주세요." });
-  if (!/^https:\/\/([\w-]+\.)?padlet\.(com|org)\//i.test(item.padletUrl)) return res.status(400).json({ error: "올바른 Padlet 주소를 입력해 주세요." });
-  await saveDoc(res, "activities", null, item, publicActivity);
-});
-
-app.put("/api/admin/activities/order", requireAdmin, async (req, res) => {
-  const ids = Array.isArray(req.body.ids) ? [...new Set(req.body.ids.map(String))] : [];
-  const count = await col("activities").countDocuments();
-  if (ids.length !== count) return res.status(400).json({ error: "전체 교육활동 순서를 다시 확인해 주세요." });
-  await col("activities").bulkWrite(ids.map((id, order) => ({ updateOne: { filter: { id }, update: { $set: { order } } } })));
-  res.json({ ok: true });
-});
-
-app.put("/api/admin/activities/:id", requireAdmin, async (req, res) => {
-  const current = await col("activities").findOne({ id: req.params.id });
-  const item = activityPayload({ ...req.body, createdAt: current?.createdAt }, req.params.id);
-  if (!item.title || !item.padletUrl) return res.status(400).json({ error: "활동명과 패들렛 주소를 입력해 주세요." });
-  if (!/^https:\/\/([\w-]+\.)?padlet\.(com|org)\//i.test(item.padletUrl)) return res.status(400).json({ error: "올바른 Padlet 주소를 입력해 주세요." });
-  await saveDoc(res, "activities", req.params.id, item, publicActivity, "교육활동을 찾을 수 없습니다.");
-});
-
-app.delete("/api/admin/activities/:id", requireAdmin, async (req, res) => {
-  if (!(await col("activities").deleteOne({ id: req.params.id })).deletedCount) return res.status(404).json({ error: "교육활동을 찾을 수 없습니다." });
-  res.json({ ok: true });
 });
 
 app.put("/api/admin/posts/:id", requireAdmin, async (req, res) => {

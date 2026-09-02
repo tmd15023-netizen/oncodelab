@@ -37,7 +37,6 @@ export async function connectDb() {
     db.collection("applications").createIndex({ id: 1 }, { unique: true }),
     db.collection("notices").createIndex({ id: 1 }, { unique: true }),
     db.collection("posts").createIndex({ id: 1 }, { unique: true }),
-    db.collection("activities").createIndex({ id: 1 }, { unique: true }),
     db.collection("applyFields").createIndex({ id: 1 }, { unique: true }),
   ]);
   await seedIfEmpty();
@@ -117,23 +116,6 @@ export function publicNotice({ id, tag, title, body, createdAt }) {
 
 export function publicPost({ id, tag, name, title, body, createdAt }) {
   return { id, tag, name: name || "", title, body, createdAt };
-}
-
-export function publicActivity(item) {
-  if (!item) return null;
-  return {
-    id: item.id,
-    category: item.category || "기타",
-    title: item.title || "",
-    organization: item.organization || "",
-    period: item.period || "",
-    description: item.description || "",
-    coverUrl: item.coverUrl || "",
-    padletUrl: item.padletUrl || "",
-    published: item.published !== false,
-    order: Number.isFinite(Number(item.order)) ? Number(item.order) : null,
-    createdAt: item.createdAt || null,
-  };
 }
 
 export function publicApplyField({ id, label, type, required, options, order }) {
