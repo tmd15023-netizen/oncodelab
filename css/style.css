@@ -468,7 +468,7 @@ h3 { font-size: 22px; }
 .page-hero.philosophy-hero {
   background:
     linear-gradient(180deg, rgba(15, 36, 59, .55), rgba(15, 36, 59, .78)),
-    url("../images/hero.png") top / cover no-repeat;
+    url("../images/hero.png") bottom / cover no-repeat;
   border-bottom: 0;
   padding: 96px 0 326px;
 }
