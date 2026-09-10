@@ -893,9 +893,35 @@ function postListHtml(list = postCache) {
   return `<div class="board">${list
     .map(
       (item) =>
-        `<a href="community?id=${encodeURIComponent(item.id)}"><em>${escapeHtml(item.tag || "질문")}</em><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.name || "")} · ${formatBoardDate(item.createdAt)}</span></a>`,
+        `<a href="community?id=${encodeURIComponent(item.id)}"><em>${escapeHtml(item.tag || "질문")}</em><b>${escapeHtml(item.title)}</b><span>${escapeHtml(item.name || "")} · ${formatBoardDate(item.createdAt)} · 댓글 ${item.commentCount || item.comments?.length || 0}</span></a>`,
     )
     .join("")}</div>`;
+}
+
+function postCommentsHtml(item) {
+  const comments = item.comments || [];
+  const list = comments.length
+    ? comments.map((comment) => `<div class="comment-item">
+        <div class="comment-head"><b>${escapeHtml(comment.name || "작성자")}</b><span>${formatBoardDate(comment.createdAt)}</span>${comment.isSecret ? '<span class="secret-badge">비밀</span>' : ""}</div>
+        <p class="${comment.isSecret && !comment.body ? "secret-comment" : ""}">${comment.isSecret && !comment.body ? `🔒 비밀 댓글입니다. <button class="comment-unlock" type="button" data-comment-unlock="${escapeHtml(comment.id)}">작성자 확인</button>` : escapeHtml(comment.body || "").replace(/\n/g, "<br>")}</p>
+        <button class="comment-delete" type="button" data-comment-delete="${escapeHtml(comment.id)}">댓글 삭제</button>
+      </div>`).join("")
+    : `<p class="sub">아직 등록된 댓글이 없습니다.</p>`;
+  return `<section class="comment-section">
+    <h3>댓글 <span>${comments.length}</span></h3>
+    <div class="comment-list">${list}</div>
+    <form class="comment-form form" id="comment-form" autocomplete="off">
+      <div class="admin-form-row">
+        <input required name="name" placeholder="이름" maxlength="20" />
+        <input required type="password" name="password" placeholder="댓글 비밀번호 (4자 이상)" minlength="4" autocomplete="new-password" />
+      </div>
+      <textarea required name="body" rows="3" placeholder="댓글을 입력해 주세요"></textarea>
+      <div class="comment-form-actions">
+        <label><input type="checkbox" name="isSecret" /> 비밀 댓글로 작성</label>
+        <button class="btn btn-orange" type="submit">댓글 등록</button>
+      </div>
+    </form>
+  </section>`;
 }
 
 function postDetailHtml(item) {
@@ -912,7 +938,56 @@ function postDetailHtml(item) {
       <button class="btn btn-line" type="button" data-post-edit="${escapeHtml(item.id)}">수정</button>
       <button class="btn btn-orange" type="button" data-post-delete="${escapeHtml(item.id)}">삭제</button>
     </div>
+    ${postCommentsHtml(item)}
   </div>`;
+}
+
+async function submitPostComment(event, postId) {
+  event.preventDefault();
+  const form = event.target;
+  const data = Object.fromEntries(new FormData(form));
+  data.isSecret = form.isSecret.checked;
+  try {
+    const updated = await api(`/api/posts/${encodeURIComponent(postId)}/comments`, { method: "POST", body: JSON.stringify(data) });
+    postCache = postCache.map((item) => (item.id === updated.id ? updated : item));
+    initCommunity();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function deletePostComment(postId, commentId) {
+  if (!window.confirm("댓글을 삭제할까요?")) return;
+  let password = "";
+  if (!isAdmin()) {
+    password = window.prompt("댓글 작성 시 설정한 비밀번호를 입력해 주세요.") || "";
+    if (!password) return;
+  }
+  try {
+    await api(`/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`, { method: "DELETE", body: JSON.stringify({ password }) });
+    const post = postCache.find((item) => item.id === postId);
+    if (post) {
+      post.comments = (post.comments || []).filter((comment) => comment.id !== commentId);
+      post.commentCount = post.comments.length;
+    }
+    initCommunity();
+  } catch (error) {
+    window.alert(error.message);
+  }
+}
+
+async function unlockPostComment(postId, commentId) {
+  const password = window.prompt("댓글 작성 시 설정한 비밀번호를 입력해 주세요.") || "";
+  if (!password) return;
+  try {
+    const result = await api(`/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/unlock`, { method: "POST", body: JSON.stringify({ password }) });
+    const post = postCache.find((item) => item.id === postId);
+    const comment = post?.comments?.find((item) => item.id === commentId);
+    if (comment) comment.body = result.body;
+    initCommunity();
+  } catch (error) {
+    window.alert(error.message);
+  }
 }
 
 function postEditFormHtml(item) {
@@ -1013,6 +1088,13 @@ function initCommunity() {
           initCommunity();
         });
         box.querySelector("[data-post-delete]")?.addEventListener("click", () => deletePostFlow(id));
+        box.querySelector("#comment-form")?.addEventListener("submit", (event) => submitPostComment(event, id));
+        box.querySelectorAll("[data-comment-delete]").forEach((button) => {
+          button.addEventListener("click", () => deletePostComment(id, button.dataset.commentDelete));
+        });
+        box.querySelectorAll("[data-comment-unlock]").forEach((button) => {
+          button.addEventListener("click", () => unlockPostComment(id, button.dataset.commentUnlock));
+        });
       }
     } else {
       editPostState = null;

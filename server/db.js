@@ -114,8 +114,15 @@ export function publicNotice({ id, tag, title, body, createdAt }) {
   return { id, tag, title, body, createdAt };
 }
 
-export function publicPost({ id, tag, name, title, body, createdAt }) {
-  return { id, tag, name: name || "", title, body, createdAt };
+export function publicPost({ id, tag, name, title, body, createdAt, comments }, { includeSecrets = false } = {}) {
+  const safeComments = (comments || []).map((comment) => ({
+    id: comment.id,
+    name: comment.name || "",
+    body: comment.isSecret && !includeSecrets ? "" : comment.body || "",
+    isSecret: Boolean(comment.isSecret),
+    createdAt: comment.createdAt,
+  }));
+  return { id, tag, name: name || "", title, body, createdAt, comments: safeComments, commentCount: safeComments.length };
 }
 
 export function publicApplyField({ id, label, type, required, options, order }) {

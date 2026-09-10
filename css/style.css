@@ -746,6 +746,23 @@ h3 { font-size: 22px; }
 .board span { color: var(--muted); font-size: 13px; text-align: right; }
 .board a:hover { color: var(--green); }
 
+.comment-section { margin-top: 36px; padding-top: 28px; border-top: 1px solid var(--line); }
+.comment-section h3 { display: flex; gap: 8px; align-items: center; }
+.comment-section h3 span { color: var(--orange); }
+.comment-list { display: grid; gap: 0; margin-top: 14px; border-top: 1px solid var(--line); }
+.comment-item { position: relative; padding: 18px 4px; border-bottom: 1px solid var(--line); }
+.comment-head { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.comment-head span { color: var(--muted); font-size: 13px; }
+.comment-head .secret-badge { color: #8a5b00; background: #fff3cd; border-radius: 999px; padding: 3px 8px; font-weight: 800; }
+.comment-item p { margin: 0; line-height: 1.7; color: var(--text); padding-right: 80px; }
+.comment-item .secret-comment { color: var(--muted); }
+.comment-unlock { border: 0; background: transparent; color: var(--orange); font-weight: 800; cursor: pointer; text-decoration: underline; }
+.comment-delete { position: absolute; right: 4px; bottom: 18px; border: 0; background: transparent; color: var(--muted); cursor: pointer; text-decoration: underline; }
+.comment-form { margin-top: 22px; padding: 22px; background: var(--bg); border-radius: 18px; }
+.comment-form-actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.comment-form-actions label { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--text); }
+.comment-form-actions input { width: 18px; height: 18px; }
+
 .auth-modal {
   position: fixed;
   inset: 0;

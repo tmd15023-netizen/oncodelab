@@ -411,8 +411,53 @@ app.get("/api/notices", async (_req, res) => {
   res.json((await col("notices").find({}).sort({ createdAt: -1 }).toArray()).map(publicNotice));
 });
 
-app.get("/api/posts", async (_req, res) => {
-  res.json((await col("posts").find({}).sort({ createdAt: -1 }).toArray()).map(publicPost));
+app.get("/api/posts", async (req, res) => {
+  const includeSecrets = isAdmin(await userFromReq(req));
+  res.json((await col("posts").find({}).sort({ createdAt: -1 }).toArray()).map((post) => publicPost(post, { includeSecrets })));
+});
+
+app.post("/api/posts/:id/comments", async (req, res) => {
+  const post = await col("posts").findOne({ id: req.params.id });
+  if (!post) return res.status(404).json({ error: "게시글을 찾을 수 없습니다." });
+  const name = String(req.body.name || "").trim();
+  const body = String(req.body.body || "").trim();
+  const password = String(req.body.password || "");
+  if (!name || !body || password.length < 4) {
+    return res.status(400).json({ error: "이름, 댓글 내용과 4자 이상의 비밀번호를 입력해 주세요." });
+  }
+  const comment = {
+    id: makeId("comment"),
+    name,
+    body,
+    isSecret: Boolean(req.body.isSecret),
+    passwordHash: await bcrypt.hash(password, 10),
+    createdAt: new Date(),
+  };
+  await col("posts").updateOne({ id: post.id }, { $push: { comments: comment } });
+  const includeSecrets = isAdmin(await userFromReq(req));
+  res.json(publicPost({ ...post, comments: [...(post.comments || []), comment] }, { includeSecrets }));
+});
+
+app.post("/api/posts/:postId/comments/:commentId/unlock", async (req, res) => {
+  const post = await col("posts").findOne({ id: req.params.postId });
+  const comment = (post?.comments || []).find((entry) => entry.id === req.params.commentId);
+  if (!post || !comment) return res.status(404).json({ error: "댓글을 찾을 수 없습니다." });
+  const admin = isAdmin(await userFromReq(req));
+  const passwordMatches = comment.passwordHash && (await bcrypt.compare(String(req.body.password || ""), comment.passwordHash));
+  if (!admin && !passwordMatches) return res.status(403).json({ error: "비밀번호가 올바르지 않습니다." });
+  res.json({ id: comment.id, body: comment.body });
+});
+
+app.delete("/api/posts/:postId/comments/:commentId", async (req, res) => {
+  const post = await col("posts").findOne({ id: req.params.postId });
+  if (!post) return res.status(404).json({ error: "게시글을 찾을 수 없습니다." });
+  const comment = (post.comments || []).find((entry) => entry.id === req.params.commentId);
+  if (!comment) return res.status(404).json({ error: "댓글을 찾을 수 없습니다." });
+  const admin = isAdmin(await userFromReq(req));
+  const passwordMatches = comment.passwordHash && (await bcrypt.compare(String(req.body.password || ""), comment.passwordHash));
+  if (!admin && !passwordMatches) return res.status(403).json({ error: "비밀번호가 올바르지 않습니다." });
+  await col("posts").updateOne({ id: post.id }, { $pull: { comments: { id: comment.id } } });
+  res.json({ ok: true });
 });
 
 app.post("/api/posts", async (req, res) => {
