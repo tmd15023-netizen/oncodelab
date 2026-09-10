@@ -977,7 +977,7 @@ async function deletePostComment(postId, commentId) {
 }
 
 async function unlockPostComment(postId, commentId) {
-  const password = window.prompt("댓글 작성 시 설정한 비밀번호를 입력해 주세요.") || "";
+  const password = window.prompt("게시글 작성 비밀번호 또는 댓글 작성 비밀번호를 입력해 주세요.") || "";
   if (!password) return;
   try {
     const result = await api(`/api/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/unlock`, { method: "POST", body: JSON.stringify({ password }) });

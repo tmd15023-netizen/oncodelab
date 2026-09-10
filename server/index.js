@@ -443,8 +443,14 @@ app.post("/api/posts/:postId/comments/:commentId/unlock", async (req, res) => {
   const comment = (post?.comments || []).find((entry) => entry.id === req.params.commentId);
   if (!post || !comment) return res.status(404).json({ error: "댓글을 찾을 수 없습니다." });
   const admin = isAdmin(await userFromReq(req));
-  const passwordMatches = comment.passwordHash && (await bcrypt.compare(String(req.body.password || ""), comment.passwordHash));
-  if (!admin && !passwordMatches) return res.status(403).json({ error: "비밀번호가 올바르지 않습니다." });
+  const password = String(req.body.password || "");
+  const [commentPasswordMatches, postPasswordMatches] = await Promise.all([
+    comment.passwordHash ? bcrypt.compare(password, comment.passwordHash) : false,
+    post.passwordHash ? bcrypt.compare(password, post.passwordHash) : false,
+  ]);
+  if (!admin && !commentPasswordMatches && !postPasswordMatches) {
+    return res.status(403).json({ error: "게시글 또는 댓글 비밀번호가 올바르지 않습니다." });
+  }
   res.json({ id: comment.id, body: comment.body });
 });
 
