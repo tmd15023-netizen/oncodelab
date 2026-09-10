@@ -127,8 +127,10 @@ export function publicApplication(item) {
   return {
     id: item.id,
     classId: item.classId || "",
+    kind: item.kind || "class",
     type: item.type,
     values: item.values || {},
+    instructor: item.instructor || null,
     note: item.note || "",
     status: item.status || "pending",
     createdAt: item.createdAt,

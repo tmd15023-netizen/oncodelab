@@ -180,6 +180,29 @@ function applyPayload(body, id, fields) {
   };
 }
 
+function instructorApplyPayload(body, id, current) {
+  const status = ["pending", "confirmed", "counseling", "done"].includes(body.status) ? body.status : current?.status || "pending";
+  const source = body.instructor || body;
+  return {
+    id: id || String(body.id || makeId("instructor")),
+    kind: "instructor",
+    classId: "",
+    type: "강사 신청",
+    values: {},
+    instructor: {
+      name: String(source.name || current?.instructor?.name || "").trim(),
+      email: String(source.email || current?.instructor?.email || "").trim().toLowerCase(),
+      phone: String(source.phone || current?.instructor?.phone || "").trim(),
+      field: String(source.field || current?.instructor?.field || "").trim(),
+      message: String(source.message || current?.instructor?.message || "").trim(),
+    },
+    note: String(body.note || current?.note || "").trim(),
+    status,
+    createdAt: body.createdAt || current?.createdAt || new Date(),
+    viewedAt: body.viewedAt || current?.viewedAt || null,
+  };
+}
+
 const BLOG_IDS = ["smartjula", "qortmd1502"];
 const blogReviewCache = { data: null, at: 0 };
 const BLOG_CACHE_MS = 10 * 60 * 1000;
@@ -549,6 +572,16 @@ app.post("/api/auth/reset-password", async (req, res) => {
 });
 
 app.post("/api/applications", async (req, res) => {
+  if (req.body.kind === "instructor") {
+    const item = instructorApplyPayload(req.body);
+    const applicant = item.instructor;
+    if (!applicant.name || !applicant.email || !applicant.phone || !applicant.message) {
+      return res.status(400).json({ error: "필수 항목을 모두 입력해 주세요." });
+    }
+    if (!validPhone(applicant.phone)) return res.status(400).json({ error: "전화번호를 올바르게 입력해 주세요." });
+    await col("applications").insertOne(item);
+    return res.json(publicApplication(item));
+  }
   const fields = await col("applyFields").find({}).sort({ order: 1 }).toArray();
   const item = applyPayload(req.body, null, fields);
   const missingRequired = fields.some((field) => field.required && !item.values[field.id]);
@@ -573,6 +606,10 @@ app.post("/api/admin/applications", requireAdmin, async (req, res) => {
 
 app.put("/api/admin/applications/:id", requireAdmin, async (req, res) => {
   const current = await col("applications").findOne({ id: req.params.id });
+  if (current?.kind === "instructor") {
+    const item = instructorApplyPayload(req.body, req.params.id, current);
+    return saveDoc(res, "applications", req.params.id, item, publicApplication, "신청 내역을 찾을 수 없습니다.");
+  }
   const fields = await col("applyFields").find({}).sort({ order: 1 }).toArray();
   // 상태 변경/수정 등 내용이 바뀔 때마다 다시 "안읽음"으로 표시해 다른 관리자도 변경을 알아챌 수 있게 한다.
   const item = { ...applyPayload({ ...req.body, classId: req.body.classId || current?.classId || "", createdAt: current?.createdAt }, req.params.id, fields), note: String(req.body.note || "").trim(), viewedAt: null };

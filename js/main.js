@@ -403,11 +403,15 @@ function renderApplyFields() {
 }
 
 function applyDisplayName(item) {
+  if (isInstructorApply(item)) return item.instructor?.name || "강사 지원자";
   const first = applyFieldCache[0];
   return (first && item.values?.[first.id]) || item.type || "신청자";
 }
 
 function applyFieldsSummary(item) {
+  if (isInstructorApply(item)) {
+    return [item.instructor?.field, item.instructor?.email, item.instructor?.phone].filter(Boolean).join(" · ");
+  }
   return applyFieldCache
     .map((field) => item.values?.[field.id])
     .filter(Boolean)
@@ -415,6 +419,7 @@ function applyFieldsSummary(item) {
 }
 
 function applyListContactSummary(item) {
+  if (isInstructorApply(item)) return [item.instructor?.phone, item.instructor?.email].filter(Boolean).join(" · ");
   return applyFieldCache
     .filter((field) => field.type === "tel" || field.type === "email")
     .map((field) => item.values?.[field.id])
@@ -424,14 +429,17 @@ function applyListContactSummary(item) {
 
 // "Class 신청자"는 실제 개설된 강좌를 신청한 사람, "수업신청내역"은 상담/문의(수업 의뢰)를 남긴 사람.
 const INQUIRY_TYPE = "수업 의뢰";
+function isInstructorApply(item) {
+  return item.kind === "instructor";
+}
 function isInquiryApply(item) {
-  return item.type === INQUIRY_TYPE;
+  return !isInstructorApply(item) && item.type === INQUIRY_TYPE;
 }
 
 function filteredApplyCache() {
   const q = applyFilter.search.trim().toLowerCase();
   return applyCache.filter((item) => {
-    if (isInquiryApply(item)) return false;
+    if (isInquiryApply(item) || isInstructorApply(item)) return false;
     if (applyFilter.classTitle !== "all" && item.type !== applyFilter.classTitle) return false;
     if (applyFilter.status !== "all" && (item.status || "pending") !== applyFilter.status) return false;
     if (!q) return true;
@@ -539,11 +547,6 @@ async function submitInquiry(event) {
   event.preventDefault();
   const form = event.target;
   const data = Object.fromEntries(new FormData(form));
-  if (data.kind === "instructor") {
-    form.style.display = "none";
-    document.getElementById("success")?.classList.add("show");
-    return;
-  }
   try {
     await api("/api/applications", { method: "POST", body: JSON.stringify(data) });
     form.style.display = "none";
@@ -1323,6 +1326,7 @@ function initAdmin() {
     { id: "overview", label: "대시보드" },
     { id: "class", label: "Class 관리" },
     { id: "apply", label: "Class 신청자" },
+    { id: "instructors", label: "강사 신청자" },
     { id: "test", label: "TEST" },
     { id: "notice", label: "공지사항" },
     { id: "community", label: "커뮤니티" },
@@ -1361,6 +1365,7 @@ function initAdmin() {
       ${adminTab === "class" ? adminClassPanel(editingClass) : ""}
       ${adminTab === "test" ? adminTestPanel(editingTest) : ""}
       ${adminTab === "apply" ? adminApplyPanel(editingApply) : ""}
+      ${adminTab === "instructors" ? adminInstructorPanel() : ""}
       ${adminTab === "fields" ? adminFieldsPanel(editingField) : ""}
       ${adminTab === "notice" ? adminNoticePanel(editingNotice) : ""}
       ${adminTab === "community" ? adminPostPanel(editingPost) : ""}
@@ -1381,7 +1386,7 @@ function initAdmin() {
       adminTab = adminNav;
       if (adminTab !== "class") editClassId = null;
       if (adminTab !== "test") editTestId = null;
-      if (adminTab !== "apply" && adminTab !== "fields") {
+      if (adminTab !== "apply" && adminTab !== "fields" && adminTab !== "instructors") {
         editApplyId = null;
         viewApplyId = null;
       }
@@ -1415,7 +1420,7 @@ function initAdmin() {
     if (editApply) {
       const id = editApply.dataset.editApply;
       const item = applyCache.find((entry) => entry.id === id);
-      adminTab = isInquiryApply(item || {}) ? "fields" : "apply";
+      adminTab = isInstructorApply(item || {}) ? "instructors" : isInquiryApply(item || {}) ? "fields" : "apply";
       adminNav = adminTab;
       editApplyId = id;
       initAdmin();
@@ -1432,7 +1437,7 @@ function initAdmin() {
     if (viewApply && !event.target.closest("select, button")) {
       const id = viewApply.dataset.viewApply;
       const item = applyCache.find((entry) => entry.id === id);
-      adminTab = isInquiryApply(item || {}) ? "fields" : "apply";
+      adminTab = isInstructorApply(item || {}) ? "instructors" : isInquiryApply(item || {}) ? "fields" : "apply";
       adminNav = adminTab;
       viewApplyId = id;
       markApplyViewed(id);
@@ -1728,7 +1733,7 @@ function applyRowHtml(item) {
     <div><b class="${isApplyUnread(item) ? "apply-unread" : ""}">${escapeHtml(applyDisplayName(item))}</b><p>${summary}</p></div>
     <div class="admin-item-actions">
       <button class="btn ${approved ? "btn-green" : "btn-line"}" type="button" data-quick-approve="${escapeHtml(item.id)}">${approved ? "승인됨" : "승인"}</button>
-      <button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button>
+      ${isInstructorApply(item) ? "" : `<button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button>`}
       <button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button>
     </div>
   </div>`;
@@ -1737,6 +1742,11 @@ function applyRowHtml(item) {
 function inquiryResultsListHtml() {
   const list = inquiryApplyCache();
   return list.map(applyRowHtml).join("") || `<p class="sub">접수된 교육신청/문의가 없습니다.</p>`;
+}
+
+function instructorResultsListHtml() {
+  const list = applyCache.filter(isInstructorApply);
+  return list.map(applyRowHtml).join("") || `<p class="sub">접수된 강사 신청이 없습니다.</p>`;
 }
 
 function applyResultsListHtml() {
@@ -1749,6 +1759,24 @@ function applyResultsListHtml() {
 }
 
 function applyDetailHtml(item) {
+  if (isInstructorApply(item)) {
+    const applicant = item.instructor || {};
+    return `<div class="profile-card">
+      <p class="kicker">${formatAdminDate(item.createdAt)}</p>
+      <h2 class="${isApplyUnread(item) ? "apply-unread" : ""}">${escapeHtml(applicant.name || "강사 지원자")}</h2>
+      <p class="sub">상태: ${applyStatus(item.status)}</p>
+      <div class="doc-body">
+        <p><b>이메일</b> ${escapeHtml(applicant.email || "-")}</p>
+        <p><b>연락처</b> ${escapeHtml(applicant.phone || "-")}</p>
+        <p><b>지원 분야</b> ${escapeHtml(applicant.field || "-")}</p>
+        <p><b>경력 및 지원 동기</b><br>${escapeHtml(applicant.message || "-").replace(/\n/g, "<br>")}</p>
+      </div>
+      <div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-line" type="button" data-apply-back>목록으로</button>
+        <button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button>
+      </div>
+    </div>`;
+  }
   const rows = applyFieldCache
     .map((field) => {
       const value = item.values?.[field.id];
@@ -1766,6 +1794,16 @@ function applyDetailHtml(item) {
       <button class="btn btn-line" type="button" data-edit-apply="${escapeHtml(item.id)}">수정</button>
       <button class="btn btn-orange" type="button" data-delete-apply="${escapeHtml(item.id)}">삭제</button>
     </div>
+  </div>`;
+}
+
+function adminInstructorPanel() {
+  const viewed = applyCache.find((item) => item.id === viewApplyId && isInstructorApply(item));
+  if (viewed) return applyDetailHtml(viewed);
+  return `<div class="profile-card">
+    <h2>강사 신청자 목록</h2>
+    <p class="sub">홈페이지 강사 신청서를 통해 접수된 지원자입니다.</p>
+    <div style="margin-top:12px">${instructorResultsListHtml()}</div>
   </div>`;
 }
 
