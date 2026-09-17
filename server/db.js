@@ -83,6 +83,7 @@ export function publicTest(test, { includeSecret = false } = {}) {
     title: test.title,
     summary: test.summary,
     pinned: Boolean(test.pinned),
+    passwordProtected: Boolean(test.password),
   };
   return includeSecret
     ? {
@@ -94,7 +95,15 @@ export function publicTest(test, { includeSecret = false } = {}) {
         fileName: test.fileName || "",
         unlockCount: test.unlockCount || 0,
       }
-    : base;
+    : test.password
+      ? base
+      : {
+          ...base,
+          body: test.body || "",
+          linkUrl: test.linkUrl || "",
+          fileUrl: test.fileUrl || "",
+          fileName: test.fileName || "",
+        };
 }
 
 export function publicClass(cls, { includeSecret = false } = {}) {

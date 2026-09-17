@@ -1743,7 +1743,7 @@ function adminTestPanel(editing) {
       <form class="admin-form" id="test-form" data-file-url="${escapeHtml(editing?.fileUrl || "")}" data-file-name="${escapeHtml(editing?.fileName || "")}">
         <input required name="title" placeholder="TEST 제목" value="${escapeHtml(editing?.title || "")}" />
         <input required name="summary" placeholder="한 줄 소개" value="${escapeHtml(editing?.summary || "")}" />
-        <input required name="password" placeholder="입장 비밀번호" value="${escapeHtml(editing?.password || "")}" />
+        <input name="password" placeholder="입장 비밀번호 (선택 — 비워두면 바로 입장)" value="${escapeHtml(editing?.password || "")}" />
         <label class="admin-check"><input type="checkbox" name="pinned" ${editing?.pinned ? "checked" : ""} /> 사용자 TEST 목록 상단에 고정</label>
         <textarea name="body" rows="5" placeholder="잠금 해제 후 보여줄 안내 (선택)">${escapeHtml(editing?.body || "")}</textarea>
         <input name="linkUrl" placeholder="외부 링크 (선택, 예: 구글 폼·드라이브 주소)" value="${escapeHtml(editing?.linkUrl || "")}" />
@@ -1760,7 +1760,7 @@ function adminTestPanel(editing) {
       </form>
     </div>
     <div class="profile-card" style="margin-top:20px"><h2>TEST 목록</h2>
-      ${testCache.map((item) => adminItem(item, `${item.pinned ? '<span class="pin-badge">상단 고정</span> · ' : ""}${escapeHtml(item.summary || "")}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""} · 누적 응시 ${item.unlockCount || 0}회`, `<div class="admin-item-actions"><span class="role-badge admin">${escapeHtml(item.password || "")}</span><button class="btn btn-line" type="button" data-pin-test="${escapeHtml(item.id)}" data-pinned="${item.pinned ? "true" : "false"}">${item.pinned ? "고정 해제" : "상단 고정"}</button><button class="btn btn-line" type="button" data-edit-test="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-test="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 TEST가 없습니다.</p>`}
+      ${testCache.map((item) => adminItem(item, `${item.pinned ? '<span class="pin-badge">상단 고정</span> · ' : ""}${escapeHtml(item.summary || "")}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""} · 누적 응시 ${item.unlockCount || 0}회`, `<div class="admin-item-actions"><span class="role-badge admin">${escapeHtml(item.password || "비밀번호 없음")}</span><button class="btn btn-line" type="button" data-pin-test="${escapeHtml(item.id)}" data-pinned="${item.pinned ? "true" : "false"}">${item.pinned ? "고정 해제" : "상단 고정"}</button><button class="btn btn-line" type="button" data-edit-test="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-test="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 TEST가 없습니다.</p>`}
     </div>`;
 }
 
@@ -2335,8 +2335,8 @@ function initTests() {
   const admin = isAdmin();
   box.innerHTML = testCache
     .map((item) => {
-      const open = admin || opened.includes(item.id);
-      const content = admin ? item : bodies[item.id] || {};
+      const open = admin || !item.passwordProtected || opened.includes(item.id);
+      const content = admin || !item.passwordProtected ? item : bodies[item.id] || {};
       const hasContent = content.body || content.linkUrl || content.fileUrl;
       return `<article class="test-card ${open ? "is-open" : "is-locked"}">
         <div class="test-head"><span class="lock-badge">${open ? "열림" : "잠금"}</span><h3>${escapeHtml(item.title)}</h3><p>${escapeHtml(item.summary)}</p></div>
@@ -2344,8 +2344,8 @@ function initTests() {
           open
             ? `<div class="test-body">
                 ${content.body ? `<p>${escapeHtml(content.body)}</p>` : ""}
-                ${content.linkUrl ? `<p><a class="btn btn-orange" href="${escapeHtml(content.linkUrl)}" target="_blank" rel="noopener" ${admin ? "" : `data-start-test="${escapeHtml(item.id)}"`}>TEST 시작하기</a></p>` : ""}
-                ${content.fileUrl ? `<p><a class="btn btn-line" href="${escapeHtml(API + content.fileUrl)}" target="_blank" rel="noopener" ${admin ? "" : `data-start-test="${escapeHtml(item.id)}"`}>${escapeHtml(content.fileName || "첨부 파일")} 다운로드</a></p>` : ""}
+                ${content.linkUrl ? `<p><a class="btn btn-orange" href="${escapeHtml(content.linkUrl)}" target="_blank" rel="noopener" ${admin || !item.passwordProtected ? "" : `data-start-test="${escapeHtml(item.id)}"`}>TEST 시작하기</a></p>` : ""}
+                ${content.fileUrl ? `<p><a class="btn btn-line" href="${escapeHtml(API + content.fileUrl)}" target="_blank" rel="noopener" ${admin || !item.passwordProtected ? "" : `data-start-test="${escapeHtml(item.id)}"`}>${escapeHtml(content.fileName || "첨부 파일")} 다운로드</a></p>` : ""}
                 ${hasContent ? "" : `<p class="sub">등록된 내용이 없습니다.</p>`}
               </div>${admin ? `<p class="test-note">관리자 계정으로 열려 있습니다.</p>` : ""}`
             : `<form class="unlock-form" data-unlock="${escapeHtml(item.id)}"><input type="password" name="code" placeholder="수업에서 받은 비밀번호" autocomplete="off" /><button class="btn btn-green" type="submit">잠금 해제</button><p class="unlock-error" hidden>비밀번호가 올바르지 않습니다.</p></form>`

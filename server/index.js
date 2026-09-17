@@ -747,14 +747,14 @@ app.delete("/api/admin/classes/:id", requireAdmin, async (req, res) => {
 
 app.post("/api/admin/tests", requireAdmin, async (req, res) => {
   const item = testPayload(req.body);
-  if (!item.title || !item.password) return res.status(400).json({ error: "제목과 비밀번호를 입력해 주세요." });
+  if (!item.title) return res.status(400).json({ error: "제목을 입력해 주세요." });
   await saveDoc(res, "tests", null, item, (doc) => publicTest(doc, { includeSecret: true }));
 });
 
 app.put("/api/admin/tests/:id", requireAdmin, async (req, res) => {
   const current = await col("tests").findOne({ id: req.params.id });
   const item = testPayload(req.body, req.params.id, current || {});
-  if (!item.title || !item.password) return res.status(400).json({ error: "제목과 비밀번호를 입력해 주세요." });
+  if (!item.title) return res.status(400).json({ error: "제목을 입력해 주세요." });
   await saveDoc(res, "tests", req.params.id, item, (doc) => publicTest(doc, { includeSecret: true }), "TEST를 찾을 수 없습니다.");
 });
 
