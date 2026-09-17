@@ -116,7 +116,8 @@ function classPayload(body, id) {
   };
 }
 
-function testPayload(body, id) {
+function testPayload(body, id, existing = {}) {
+  const pinned = body.pinned === true || body.pinned === "true";
   return {
     id: id || String(body.id || makeId("test")),
     title: String(body.title || "").trim(),
@@ -126,6 +127,8 @@ function testPayload(body, id) {
     linkUrl: String(body.linkUrl || "").trim(),
     fileUrl: String(body.fileUrl || "").trim(),
     fileName: String(body.fileName || "").trim(),
+    pinned,
+    pinnedAt: pinned ? existing.pinnedAt || new Date() : null,
   };
 }
 
@@ -386,7 +389,8 @@ app.get("/api/my-applications", requireAuth, async (req, res) => {
 
 app.get("/api/tests", async (req, res) => {
   const admin = isAdmin(await userFromReq(req));
-  res.json((await col("tests").find({}).toArray()).map((item) => publicTest(item, { includeSecret: admin })));
+  const items = await col("tests").find({}).sort({ pinned: -1, pinnedAt: -1, _id: 1 }).toArray();
+  res.json(items.map((item) => publicTest(item, { includeSecret: admin })));
 });
 
 app.post("/api/tests/:id/unlock", async (req, res) => {
@@ -748,9 +752,23 @@ app.post("/api/admin/tests", requireAdmin, async (req, res) => {
 });
 
 app.put("/api/admin/tests/:id", requireAdmin, async (req, res) => {
-  const item = testPayload(req.body, req.params.id);
+  const current = await col("tests").findOne({ id: req.params.id });
+  const item = testPayload(req.body, req.params.id, current || {});
   if (!item.title || !item.password) return res.status(400).json({ error: "제목과 비밀번호를 입력해 주세요." });
   await saveDoc(res, "tests", req.params.id, item, (doc) => publicTest(doc, { includeSecret: true }), "TEST를 찾을 수 없습니다.");
+});
+
+app.patch("/api/admin/tests/:id/pin", requireAdmin, async (req, res) => {
+  const pinned = req.body.pinned === true;
+  const updated = unwrap(
+    await col("tests").findOneAndUpdate(
+      { id: req.params.id },
+      { $set: { pinned, pinnedAt: pinned ? new Date() : null } },
+      { returnDocument: "after" },
+    ),
+  );
+  if (!updated) return res.status(404).json({ error: "TEST를 찾을 수 없습니다." });
+  res.json(publicTest(updated, { includeSecret: true }));
 });
 
 app.delete("/api/admin/tests/:id", requireAdmin, async (req, res) => {

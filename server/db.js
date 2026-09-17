@@ -78,11 +78,15 @@ export function publicUser(user) {
 
 export function publicTest(test, { includeSecret = false } = {}) {
   if (!test) return null;
+  const base = {
+    id: test.id,
+    title: test.title,
+    summary: test.summary,
+    pinned: Boolean(test.pinned),
+  };
   return includeSecret
     ? {
-        id: test.id,
-        title: test.title,
-        summary: test.summary,
+        ...base,
         password: test.password,
         body: test.body,
         linkUrl: test.linkUrl || "",
@@ -90,7 +94,7 @@ export function publicTest(test, { includeSecret = false } = {}) {
         fileName: test.fileName || "",
         unlockCount: test.unlockCount || 0,
       }
-    : { id: test.id, title: test.title, summary: test.summary };
+    : base;
 }
 
 export function publicClass(cls, { includeSecret = false } = {}) {

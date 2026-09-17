@@ -1498,6 +1498,8 @@ function initAdmin() {
       initAdmin();
       return;
     }
+    const pinTest = event.target.closest("[data-pin-test]");
+    if (pinTest) return toggleTestPin(pinTest.dataset.pinTest, pinTest.dataset.pinned !== "true");
     const editApply = event.target.closest("[data-edit-apply]");
     if (editApply) {
       const id = editApply.dataset.editApply;
@@ -1742,6 +1744,7 @@ function adminTestPanel(editing) {
         <input required name="title" placeholder="TEST 제목" value="${escapeHtml(editing?.title || "")}" />
         <input required name="summary" placeholder="한 줄 소개" value="${escapeHtml(editing?.summary || "")}" />
         <input required name="password" placeholder="입장 비밀번호" value="${escapeHtml(editing?.password || "")}" />
+        <label class="admin-check"><input type="checkbox" name="pinned" ${editing?.pinned ? "checked" : ""} /> 사용자 TEST 목록 상단에 고정</label>
         <textarea name="body" rows="5" placeholder="잠금 해제 후 보여줄 안내 (선택)">${escapeHtml(editing?.body || "")}</textarea>
         <input name="linkUrl" placeholder="외부 링크 (선택, 예: 구글 폼·드라이브 주소)" value="${escapeHtml(editing?.linkUrl || "")}" />
         <input type="file" name="file" />
@@ -1757,7 +1760,7 @@ function adminTestPanel(editing) {
       </form>
     </div>
     <div class="profile-card" style="margin-top:20px"><h2>TEST 목록</h2>
-      ${testCache.map((item) => adminItem(item, `${escapeHtml(item.summary || "")}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""} · 누적 응시 ${item.unlockCount || 0}회`, `<div class="admin-item-actions"><span class="role-badge admin">${escapeHtml(item.password || "")}</span><button class="btn btn-line" type="button" data-edit-test="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-test="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 TEST가 없습니다.</p>`}
+      ${testCache.map((item) => adminItem(item, `${item.pinned ? '<span class="pin-badge">상단 고정</span> · ' : ""}${escapeHtml(item.summary || "")}${item.linkUrl ? " · 링크 첨부됨" : ""}${item.fileName ? " · 파일 첨부됨" : ""} · 누적 응시 ${item.unlockCount || 0}회`, `<div class="admin-item-actions"><span class="role-badge admin">${escapeHtml(item.password || "")}</span><button class="btn btn-line" type="button" data-pin-test="${escapeHtml(item.id)}" data-pinned="${item.pinned ? "true" : "false"}">${item.pinned ? "고정 해제" : "상단 고정"}</button><button class="btn btn-line" type="button" data-edit-test="${escapeHtml(item.id)}">수정</button><button class="btn btn-orange" type="button" data-delete-test="${escapeHtml(item.id)}">삭제</button></div>`)).join("") || `<p class="sub">등록된 TEST가 없습니다.</p>`}
     </div>`;
 }
 
@@ -2229,7 +2232,21 @@ async function saveAdminTest(event) {
     linkUrl: form.linkUrl.value.trim(),
     fileUrl,
     fileName,
+    pinned: form.pinned.checked,
   });
+}
+
+async function toggleTestPin(id, pinned) {
+  try {
+    await api(`/api/admin/tests/${encodeURIComponent(id)}/pin`, {
+      method: "PATCH",
+      body: JSON.stringify({ pinned }),
+    });
+    await loadSiteData();
+    initAdmin();
+  } catch (error) {
+    window.alert(error.message);
+  }
 }
 
 async function saveAdminNotice(event) {

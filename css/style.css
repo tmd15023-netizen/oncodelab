@@ -1200,6 +1200,24 @@ h3 { font-size: 22px; }
   gap: 8px;
   flex-wrap: wrap;
 }
+.admin-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+.admin-form .admin-check input { width: auto; }
+.pin-badge {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #fff3df;
+  color: #b85c00;
+  font-size: 12px;
+  font-weight: 800;
+}
 .admin-item {
   display: grid;
   grid-template-columns: 1fr auto;
