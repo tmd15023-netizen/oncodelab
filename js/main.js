@@ -470,12 +470,18 @@ function isInstructorApply(item) {
 
 // Homepage previews read the same in-memory API results as the full pages.
 // No content is copied into markup or changed in storage.
-function classRecruitmentBadge(status) {
-  const value = String(status || "");
-  if (/종료|종강/.test(value)) return { label: "종료", tone: "ended" };
-  if (/마감/.test(value) && !/마감임박/.test(value)) return { label: "마감", tone: "closed" };
-  if (/모집중|접수중|마감임박/.test(value)) return { label: "모집중", tone: "recruiting" };
-  return null;
+function classStatusTokens(status) {
+  return String(status || "").split("·").map((part) => part.trim()).filter(Boolean);
+}
+
+function classRecruitmentBadges(status) {
+  const parts = classStatusTokens(status);
+  const has = (pattern) => parts.some((part) => pattern.test(part));
+  return [
+    has(/모집중|접수중|마감임박/) && { label: "모집중", tone: "recruiting" },
+    has(/마감(?!임박)/) && { label: "마감", tone: "closed" },
+    has(/종료|종강/) && { label: "종료", tone: "ended" },
+  ].filter(Boolean);
 }
 
 function renderHomePreviews() {
@@ -485,9 +491,9 @@ function renderHomePreviews() {
   if (!classes || !tests || !notices) return;
   classes.innerHTML = classCache.length
     ? classCache.slice(0, 4).map((item) => {
-      const badge = classRecruitmentBadge(item.status);
+      const badges = classRecruitmentBadges(item.status);
       return `<a class="home-preview-card" href="class-detail?id=${encodeURIComponent(item.id)}">
-        ${badge ? `<span class="home-preview-status is-${badge.tone}">${badge.label}</span>` : ""}
+        ${badges.length ? `<span class="home-preview-badges">${badges.map((badge) => `<span class="home-preview-status is-${badge.tone}">${badge.label}</span>`).join("")}</span>` : ""}
         ${item.posterUrl
           ? `<span class="home-preview-art home-preview-art-image"><img src="${escapeHtml(assetUrl(item.posterUrl))}" alt="${escapeHtml(item.title)} 포스터" loading="lazy" /></span>`
           : `<span class="home-preview-art ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</span>`}
@@ -1794,6 +1800,11 @@ function adminOverview() {
 }
 
 function adminClassPanel(editing) {
+  const statusParts = classStatusTokens(editing?.status);
+  const selectedMode = (mode) => statusParts.includes(mode);
+  const selectedStage = (stage) => stage === "접수중"
+    ? statusParts.some((part) => /접수중|모집중/.test(part))
+    : statusParts.some((part) => stage === "마감" ? /마감(?!임박)/.test(part) : part.includes(stage));
   return `
     <div class="profile-card">
       <h2>${editing ? "Class 수정" : "Class 추가"}</h2>
@@ -1806,7 +1817,18 @@ function adminClassPanel(editing) {
             <option value="off" ${editing?.tone === "off" ? "selected" : ""}>테두리 주황</option>
           </select>
         </div>
-        <input name="status" placeholder="상태 (예: 온라인 · 진행중)" value="${escapeHtml(editing?.status || "온라인 · 진행중")}" />
+        <fieldset class="class-status-group">
+          <legend>진행 방식 <small>중복 선택 가능</small></legend>
+          <div class="class-status-options">
+            ${["온라인", "오프라인"].map((mode) => `<label class="class-status-chip"><input type="checkbox" name="classMode" value="${mode}" ${selectedMode(mode) ? "checked" : ""} /><span>${mode}</span></label>`).join("")}
+          </div>
+        </fieldset>
+        <fieldset class="class-status-group">
+          <legend>모집 상태 <small>중복 선택 가능</small></legend>
+          <div class="class-status-options">
+            ${["접수중", "마감", "종료"].map((stage) => `<label class="class-status-chip"><input type="checkbox" name="classStage" value="${stage}" ${selectedStage(stage) ? "checked" : ""} /><span>${stage}</span></label>`).join("")}
+          </div>
+        </fieldset>
         <input required name="title" placeholder="교육 제목" value="${escapeHtml(editing?.title || "")}" />
         <textarea required name="summary" rows="3" placeholder="교육 설명">${escapeHtml(editing?.summary || "")}</textarea>
         <label style="font-size:14px;color:var(--muted)">교육 포스터 이미지 (선택 — 등록하면 Class 목록 카드에 이미지가 통으로 표시됩니다)</label>
@@ -2149,6 +2171,12 @@ async function saveItem(kind, id, body) {
 async function saveAdminClass(event) {
   event.preventDefault();
   const form = event.target;
+  const modes = [...form.querySelectorAll('input[name="classMode"]:checked')].map((input) => input.value);
+  const stages = [...form.querySelectorAll('input[name="classStage"]:checked')].map((input) => input.value);
+  if (!modes.length || !stages.length) {
+    window.alert("진행 방식과 모집 상태를 각각 하나 이상 선택해 주세요.");
+    return;
+  }
   const id = editClassId;
   editClassId = null;
   adminTab = "class";
@@ -2185,7 +2213,7 @@ async function saveAdminClass(event) {
     id,
     label: form.label.value.trim() || "CLASS",
     tone: form.tone.value,
-    status: form.status.value.trim() || "온라인 · 진행중",
+    status: [...modes, ...stages].join(" · "),
     title: form.title.value.trim(),
     summary: form.summary.value.trim(),
     posterUrl,

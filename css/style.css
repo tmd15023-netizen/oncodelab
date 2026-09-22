@@ -1243,6 +1243,15 @@ h3 { font-size: 22px; }
   font-weight: 700;
 }
 .admin-form .admin-check input { width: auto; }
+.admin-form .class-status-group { min-width: 0; margin: 0; padding: 13px 15px 15px; border: 1px solid var(--line); border-radius: 14px; }
+.admin-form .class-status-group legend { padding: 0 5px; color: var(--navy); font-weight: 700; }
+.admin-form .class-status-group legend small { margin-left: 5px; color: var(--muted); font-size: 12px; font-weight: 400; }
+.admin-form .class-status-options { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-form .class-status-chip { position: relative; display: inline-flex; }
+.admin-form .class-status-chip input { position: absolute; width: 1px; height: 1px; padding: 0; opacity: 0; }
+.admin-form .class-status-chip span { display: inline-flex; align-items: center; justify-content: center; min-height: 40px; padding: 8px 16px; border: 1px solid #c7d8e8; border-radius: 999px; color: var(--navy); background: #fff; font-weight: 500; cursor: pointer; }
+.admin-form .class-status-chip input:checked + span { border-color: #3d7cc9; color: #fff; background: #3d7cc9; }
+.admin-form .class-status-chip input:focus-visible + span { outline: 3px solid #ffae83; outline-offset: 2px; }
 .pin-badge {
   display: inline-flex;
   border-radius: 999px;
@@ -1465,7 +1474,8 @@ h3 { font-size: 22px; }
 .home-page .home-preview-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
 .home-page .home-preview-card { position: relative; min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; transition: transform .2s, box-shadow .2s; }
 .home-page .home-preview-card:hover { transform: translateY(-3px); box-shadow: var(--shadow); }
-.home-page .home-preview-status { position: absolute; z-index: 1; top: 12px; left: 12px; display: inline-flex; align-items: center; min-height: 28px; padding: 5px 12px; border-radius: 999px; color: #fff; background: #596575; font-size: 13px; font-weight: 700; line-height: 1; box-shadow: 0 2px 8px rgba(15, 36, 59, .18); }
+.home-page .home-preview-badges { position: absolute; z-index: 1; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 5px; }
+.home-page .home-preview-status { display: inline-flex; align-items: center; min-height: 28px; padding: 5px 12px; border-radius: 999px; color: #fff; background: #596575; font-size: 13px; font-weight: 700; line-height: 1; box-shadow: 0 2px 8px rgba(15, 36, 59, .18); }
 .home-page .home-preview-status.is-recruiting { background: #167a53; }
 .home-page .home-preview-status.is-ended { background: #c73542; }
 .home-page .home-preview-art { display: flex; align-items: end; height: 130px; padding: 17px; background: linear-gradient(135deg, #224a7a, #74a9df); color: #fff; font-size: 22px; font-weight: 800; }
