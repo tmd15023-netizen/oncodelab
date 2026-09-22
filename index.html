@@ -8,9 +8,9 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-  <link rel="stylesheet" href="css/style.css?v=20260922-3" />
+  <link rel="stylesheet" href="css/style.css?v=20260922-5" />
 </head>
-<body>
+<body class="home-page">
   <div class="topbar">
     <div class="wrap">
       <span class="topbar-brand">온코드랩</span>
@@ -45,6 +45,7 @@
     </div>
   </header>
 
+  <main class="home-main">
   <section class="hero-carousel-section">
     <div class="hero-carousel" id="hero-carousel">
       <div class="hero-carousel-track" id="hero-carousel-track"></div>
@@ -52,21 +53,17 @@
     <div class="hero-carousel-dots" id="hero-carousel-dots"></div>
   </section>
 
-  <section class="hero">
-    <div class="hero-copy">
-      <p class="kicker">ONCODELAB</p>
-      <h1>배움이 <span class="hero-accent">스스로의 힘</span>이 되는 교육을 만들어갑니다.</h1>
-      <p>AI와 코딩을 쉽게 이해하는 것에서 시작해,<br>
-      직접 생각하고 만들고 해결하는 경험을 통해<br>
-      <strong>스스로 배우고 성장할 수 있는 힘을 키우는 교육을 이어갑니다.</strong></p>
-      <div class="hero-cta">
-        <a class="btn btn-orange" href="class">Class 신청</a>
-        <a class="btn btn-green" href="about">온코드랩 소개</a>
-      </div>
-    </div>
+  <section class="home-panel home-list-section" aria-labelledby="home-class-heading">
+    <div class="home-section-heading"><div><p class="kicker">ONCODELAB CLASS</p><h2 id="home-class-heading">진행 중인 Class</h2></div><a href="class">전체 보기 →</a></div>
+    <div id="home-class-preview" class="home-preview-grid"></div>
   </section>
 
-  <section class="section">
+  <section class="home-panel home-list-section" aria-labelledby="home-test-heading">
+    <div class="home-section-heading"><div><p class="kicker">ONCODELAB TEST</p><h2 id="home-test-heading">TEST</h2></div><a href="diagnosis">전체 보기 →</a></div>
+    <div id="home-test-preview" class="home-preview-grid home-test-grid"></div>
+  </section>
+
+  <section class="section home-panel home-reviews-section">
     <div class="wrap wide center">
       <p class="kicker">CONTENT & REVIEW</p>
       <h2>교육콘텐츠 &amp; 후기</h2>
@@ -76,7 +73,7 @@
     </div>
   </section>
 
-  <section class="section philosophy">
+  <section class="section philosophy home-panel home-philosophy-section">
     <div class="wrap center">
       <p class="kicker">ONCODELAB CLASS</p>
       <h2>즐거운 경험이 생각하는 힘이 되는 교육</h2>
@@ -101,7 +98,7 @@
     </div>
   </section>
 
-  <section class="section">
+  <section class="section home-panel home-inquiry-original">
     <div class="wrap center">
       <p class="kicker">INQUIRY & APPLY</p>
       <h2>교육신청 / 문의</h2>
@@ -110,22 +107,33 @@
     </div>
   </section>
 
-  <section class="section philosophy">
-    <div class="wrap">
-      <div class="labs">
-        <a class="lab student" href="class">
-          <h3>Class</h3>
-          <p>온라인으로 진행되는 교육을 확인하고, 바로 신청할 수 있는 공간입니다.</p>
-          <span>온라인 교육 신청하기 →</span>
-        </a>
-        <a class="lab teacher" href="diagnosis">
-          <h3>TEST</h3>
-          <p>실제 수업에서 활용하는 공간입니다. 수업 중 승인받은 학습자만 비밀번호로 입장할 수 있습니다.</p>
-          <span>TEST 목록 보기 →</span>
-        </a>
+  <div class="home-board-grid">
+    <section class="home-panel home-list-section" aria-labelledby="home-notice-heading">
+      <div class="home-section-heading"><div><p class="kicker">NEWS</p><h2 id="home-notice-heading">공지사항</h2></div><a href="notice">전체 보기 →</a></div>
+      <div id="home-notice-preview" class="home-board-list"></div>
+    </section>
+    <section class="home-panel home-list-section" aria-labelledby="home-inquiry-heading">
+      <div class="home-section-heading"><div><p class="kicker">INQUIRY &amp; APPLY</p><h2 id="home-inquiry-heading">교육신청 / 문의</h2></div></div>
+      <p class="sub">원하는 교육이 아직 없다면 언제든 편하게 문의해 주세요.<br>온코드랩이 눈높이에 맞는 교육으로 답해드립니다.</p>
+      <a class="btn btn-green home-inquiry-link" href="contact">교육신청 / 문의하기 →</a>
+    </section>
+  </div>
+
+  <section class="hero home-panel">
+    <div class="hero-copy">
+      <p class="kicker">ONCODELAB</p>
+      <h1>배움이 <span class="hero-accent">스스로의 힘</span>이 되는 교육을 만들어갑니다.</h1>
+      <p>AI와 코딩을 쉽게 이해하는 것에서 시작해,<br>
+      직접 생각하고 만들고 해결하는 경험을 통해<br>
+      <strong>스스로 배우고 성장할 수 있는 힘을 키우는 교육을 이어갑니다.</strong></p>
+      <div class="hero-cta">
+        <a class="btn btn-orange" href="class">Class 신청</a>
+        <a class="btn btn-green" href="about">온코드랩 소개</a>
       </div>
     </div>
   </section>
+
+  </main>
 
   <footer class="footer">
     <div class="wrap footer-grid">
@@ -148,6 +156,6 @@
     </div>
     <div class="copy">© 2026 Oncodelab. All rights reserved.</div>
   </footer>
-  <script src="js/main.js?v=20260922-3"></script>
+  <script src="js/main.js?v=20260922-5"></script>
 </body>
 </html>

@@ -433,6 +433,34 @@ function isInstructorApply(item) {
   return item.kind === "instructor";
 }
 
+// Homepage previews read the same in-memory API results as the full pages.
+// No content is copied into markup or changed in storage.
+function renderHomePreviews() {
+  const classes = document.getElementById("home-class-preview");
+  const tests = document.getElementById("home-test-preview");
+  const notices = document.getElementById("home-notice-preview");
+  if (!classes || !tests || !notices) return;
+  classes.innerHTML = classCache.length
+    ? classCache.slice(0, 4).map((item) => `<a class="home-preview-card" href="class-detail?id=${encodeURIComponent(item.id)}">
+        ${item.posterUrl
+          ? `<span class="home-preview-art home-preview-art-image"><img src="${escapeHtml(assetUrl(item.posterUrl))}" alt="${escapeHtml(item.title)} 포스터" loading="lazy" /></span>`
+          : `<span class="home-preview-art ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</span>`}
+        <span class="home-preview-copy"><small>${escapeHtml(item.status || "온라인 · 진행중")}</small><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.summary || "")}</span></span>
+      </a>`).join("")
+    : `<p class="sub">현재 신청 가능한 Class가 없습니다.</p>`;
+  tests.innerHTML = testCache.length
+    ? testCache.slice(0, 3).map((item) => `<a class="home-preview-card home-test-card" href="diagnosis">
+        <span class="home-test-label">TEST ${item.passwordProtected ? "· 비밀번호 필요" : "· 바로 입장"}</span>
+        <strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.summary || "")}</span><b>목록에서 보기 →</b>
+      </a>`).join("")
+    : `<p class="sub">현재 열려 있는 TEST가 없습니다.</p>`;
+  notices.innerHTML = noticeCache.length
+    ? noticeCache.slice(0, 4).map((item) => `<a class="home-board-row" href="notice?id=${encodeURIComponent(item.id)}">
+        <strong>${escapeHtml(item.title)}</strong><span>${formatBoardDate(item.createdAt)}</span>
+      </a>`).join("")
+    : `<p class="sub">등록된 공지사항이 없습니다.</p>`;
+}
+
 function preventPublicPageCopy() {
   if (document.body.classList.contains("admin-body")) return;
   const isEditable = (element) => element instanceof Element && Boolean(element.closest("input, textarea, [contenteditable='true']"));
@@ -2405,6 +2433,9 @@ function setupLivePolling() {
     { containerId: "class-list", path: "/api/classes", setCache: (v) => (classCache = v), render: () => { renderClassPage(); fillInquiryOptions(); } },
     { containerId: "test-list", path: "/api/tests", setCache: (v) => (testCache = v), render: initTests },
     { containerId: "notice-list", path: "/api/notices", setCache: (v) => (noticeCache = v), render: initNotices },
+    { containerId: "home-class-preview", path: "/api/classes", setCache: (v) => (classCache = v), render: renderHomePreviews },
+    { containerId: "home-test-preview", path: "/api/tests", setCache: (v) => (testCache = v), render: renderHomePreviews },
+    { containerId: "home-notice-preview", path: "/api/notices", setCache: (v) => (noticeCache = v), render: renderHomePreviews },
     { containerId: "community", path: "/api/posts", setCache: (v) => (postCache = v), render: initCommunity },
   ].filter((watcher) => document.getElementById(watcher.containerId));
   if (!watchers.length) return;
@@ -2437,6 +2468,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     setupCounselButton();
     await loadSiteData();
     renderClassPage();
+    renderHomePreviews();
     renderClassDetailPage();
     fillInquiryOptions();
     renderApplyFields();
