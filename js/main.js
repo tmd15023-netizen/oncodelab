@@ -736,6 +736,13 @@ function reviewThumbHtml(item) {
     : `<div class="thumb live" data-thumb-for="${escapeHtml(item.link)}">REVIEW</div>`;
 }
 
+function reviewImageLinkHtml(item) {
+  return `<a class="review-image-link" href="${escapeHtml(item.link)}" target="_blank" rel="noopener" aria-label="${escapeHtml(item.title)} 블로그에서 보기">
+    ${reviewThumbHtml(item)}
+    <span class="review-image-overlay" aria-hidden="true">블로그 열기 ↗</span>
+  </a>`;
+}
+
 // RSS에 썸네일이 없는(오래된) 글은 목록에는 이미지 없이 나오고, 실제로 화면에
 // 그려진 카드에 한해서만 본문에서 이미지를 가져와 채워 넣는다(전체를 한 번에
 // 긁으면 너무 느리고 부하가 크기 때문). 같은 글은 세션 내에서 한 번만 요청한다.
@@ -758,10 +765,7 @@ async function loadMissingThumbnails(root) {
 
 function homeReviewCardHtml(item) {
   return `<article class="card">
-    ${reviewThumbHtml(item)}
-    <div class="card-body">
-      <a class="btn btn-line" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">블로그에서 보기</a>
-    </div>
+    ${reviewImageLinkHtml(item)}
   </article>`;
 }
 
@@ -797,11 +801,10 @@ function renderHomeReviews() {
 function reviewCardHtml(item) {
   const author = item.blogId === "smartjula" ? "박주라 강사 블로그" : "백승희 강사 블로그";
   return `<article class="card">
-    ${reviewThumbHtml(item)}
+    ${reviewImageLinkHtml(item)}
     <div class="card-body">
       <small>${escapeHtml(author)}</small>
       <h3>${escapeHtml(item.title)}</h3>
-      <a class="btn btn-line" href="${escapeHtml(item.link)}" target="_blank" rel="noopener">블로그에서 보기</a>
     </div>
   </article>`;
 }

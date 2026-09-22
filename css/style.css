@@ -519,6 +519,26 @@ h3 { font-size: 22px; }
 .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
 .review-grid { grid-template-columns: repeat(5, 1fr); }
 .review-grid .card-body h3 { font-size: 14px; line-height: 1.5; }
+.review-image-link { position: relative; display: block; overflow: hidden; cursor: pointer; }
+.review-image-link img { display: block; width: 100%; height: auto; transition: transform .2s ease; }
+.review-image-link:hover img,
+.review-image-link:focus-visible img { transform: scale(1.04); }
+.review-image-link:focus-visible { outline: 3px solid var(--orange); outline-offset: -3px; }
+.review-image-overlay {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 12px;
+  background: rgba(15, 36, 59, .82);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  transform: translateY(100%);
+  transition: transform .2s ease;
+  pointer-events: none;
+}
+.review-image-link:hover .review-image-overlay,
+.review-image-link:focus-visible .review-image-overlay { transform: translateY(0); }
 @media (max-width: 1100px) {
   .review-grid { grid-template-columns: repeat(3, 1fr); }
 }
