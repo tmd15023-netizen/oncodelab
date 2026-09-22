@@ -432,6 +432,20 @@ const INQUIRY_TYPE = "수업 의뢰";
 function isInstructorApply(item) {
   return item.kind === "instructor";
 }
+
+function preventPublicPageCopy() {
+  if (document.body.classList.contains("admin-body")) return;
+  const isEditable = (element) => element instanceof Element && Boolean(element.closest("input, textarea, [contenteditable='true']"));
+  document.addEventListener("selectstart", (event) => {
+    if (!isEditable(event.target)) event.preventDefault();
+  });
+  document.addEventListener("copy", (event) => {
+    if (!isEditable(event.target) && !isEditable(document.activeElement)) event.preventDefault();
+  });
+  document.addEventListener("dragstart", (event) => {
+    if (event.target instanceof Element && event.target.closest("img")) event.preventDefault();
+  });
+}
 function isInquiryApply(item) {
   return !isInstructorApply(item) && item.type === INQUIRY_TYPE;
 }
@@ -2413,6 +2427,7 @@ function setupLivePolling() {
 
 document.addEventListener("DOMContentLoaded", async () => {
   try {
+    preventPublicPageCopy();
     renderCourses();
     initHeroCarousel();
     setupAuth();

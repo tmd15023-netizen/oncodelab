@@ -19,6 +19,26 @@ app.use(cors());
 // Class poster images are stored as data URLs so they persist on serverless hosts.
 app.use(express.json({ limit: "5mb" }));
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+if (!isServerless) {
+  const siteRoot = process.cwd();
+  const pages = new Set([
+    "index", "about", "admin", "class", "class-detail", "community",
+    "contact", "diagnosis", "greeting", "history", "instructor",
+    "mypage", "notice", "program", "student", "teacher",
+  ]);
+  for (const directory of ["css", "js", "images"]) {
+    app.use(`/${directory}`, express.static(path.join(siteRoot, directory)));
+  }
+  for (const file of ["favicon.png", "favicon.svg", "apple-touch-icon.png", "robots.txt", "sitemap.xml"]) {
+    app.get(`/${file}`, (_req, res) => res.sendFile(path.join(siteRoot, file)));
+  }
+  app.get("/", (_req, res) => res.sendFile(path.join(siteRoot, "index.html")));
+  app.get("/:page", (req, res, next) => {
+    const page = req.params.page.replace(/\.html$/, "");
+    if (!pages.has(page)) return next();
+    res.sendFile(path.join(siteRoot, `${page}.html`));
+  });
+}
 app.use(async (_req, res, next) => {
   try {
     await connectDb();

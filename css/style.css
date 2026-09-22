@@ -51,6 +51,20 @@ button, input, select, textarea { font: inherit; }
 ul { margin: 0; padding: 0; list-style: none; }
 img { max-width: 100%; display: block; }
 
+/* Discourage mouse-drag copying on public pages without breaking forms. */
+body:not(.admin-body),
+body:not(.admin-body) * {
+  -webkit-user-select: none;
+  user-select: none;
+}
+body:not(.admin-body) :is(input, textarea, [contenteditable="true"]) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+body:not(.admin-body) img {
+  -webkit-user-drag: none;
+}
+
 .wrap { width: min(1180px, calc(100% - 40px)); margin: 0 auto; }
 .wrap.wide { width: min(1280px, calc(100% - 32px)); }
 
@@ -1335,4 +1349,76 @@ h3 { font-size: 22px; }
   .dash-check { display: none; }
   .dash-main { padding: 18px 16px 32px; }
   .dash-table { min-width: 640px; }
+}
+
+/* Tablet and phone refinements. Desktop layout above remains unchanged. */
+@media (min-width: 601px) and (max-width: 980px) {
+  .pillars, .labs, .steps, .cards, .review-grid, .footer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .course-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .steps[style] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .footer-grid > :first-child { grid-column: 1 / -1; }
+  .dash-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+  .wrap, .wrap.wide, .article { width: calc(100% - 28px); }
+  .topbar .wrap { min-height: 48px; padding: 9px 0; }
+  .topbar { font-size: 12px; }
+  .topbar-brand { font-size: 19px; }
+  .topbar-contact { gap: 2px; }
+  .topbar-line { gap: 5px; }
+  .topbar-note { font-size: 10px; }
+  .topbar-cta { font-size: 11px; padding: 4px 8px; }
+  .header-main { gap: 8px; padding: 10px 0; }
+  .brand { min-width: 0; }
+  .brand img { height: 32px; max-width: min(38vw, 170px); }
+  .header-actions { align-items: center; gap: 5px; flex-shrink: 0; }
+  .header-actions .btn, .menu-btn { padding: 8px 9px; font-size: 12px; }
+  .nav { left: -14px; right: -14px; max-height: calc(100dvh - 110px); overflow-y: auto; }
+  .nav-item > a, .nav-item > span { padding: 12px; }
+
+  .section { padding: 52px 0; }
+  .hero { padding: 52px 14px; }
+  .hero h1 { font-size: clamp(27px, 8vw, 36px); }
+  .hero p { font-size: 16px; }
+  .hero-cta { margin-top: 26px; }
+  .hero-carousel-section { padding: 28px 14px 24px; }
+  .hero-carousel { height: clamp(190px, 58vw, 280px); }
+  .hero-slide { width: min(100%, 450px); }
+  .hero-carousel-dots { margin-top: 18px; gap: 5px; }
+  .hero-carousel-dots button:not(.hero-carousel-arrow) { width: 6px; height: 6px; }
+  .steps[style] { grid-template-columns: 1fr !important; }
+  .page-hero { padding: 36px 0 22px; }
+  .page-hero.philosophy-hero { padding: 70px 0 190px; }
+  .article { padding: 36px 0 60px; }
+  .pillar, .topic-card, .closing-box, .test-card, .profile-card { padding: 20px 16px; }
+  .lab { padding: 26px 22px; min-height: 180px; }
+  .lab h3 { font-size: 26px; }
+  .review-search-input { font-size: 16px; padding: 15px 18px 15px 48px; }
+  .review-search-icon { left: 16px; font-size: 20px; }
+  .time-item { grid-template-columns: 1fr; gap: 5px; }
+  .footer-grid { padding: 34px 0; gap: 18px; }
+  .footer-grid p[style] { flex-wrap: wrap; gap: 6px !important; }
+  .footer-grid p[style] span { text-align: left !important; }
+  .board a, .board-row { grid-template-columns: 1fr; gap: 5px; }
+  .comment-item p { padding-right: 0; padding-bottom: 20px; }
+  .comment-form { padding: 18px 14px; }
+  .comment-form-actions { flex-wrap: wrap; }
+
+  .dash-sidebar { padding: 18px 14px; }
+  .dash-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .dash-nav button { padding: 10px 8px; font-size: 13px; }
+  .dash-main { padding: 14px 12px 28px; }
+  .dash-card { padding: 18px 14px; }
+  .admin-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-stat { padding: 14px; }
+  .admin-body .profile-card { padding: 20px 14px; }
+  .admin-item { min-width: 0; }
+  .admin-item > div { min-width: 0; }
+  .admin-item-actions { justify-content: flex-start; }
+  .admin-item-actions .btn { padding: 9px 11px; font-size: 13px; }
+  .admin-form input, .admin-form select, .admin-form textarea { min-width: 0; }
+  .dash-table-wrap { -webkit-overflow-scrolling: touch; }
 }
