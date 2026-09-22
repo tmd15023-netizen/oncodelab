@@ -110,7 +110,19 @@ async function api(path, options = {}) {
 }
 
 async function loadSiteData() {
-  const safe = (promise) => promise.catch((error) => { console.warn(error.message); return null; });
+  const safe = async (promise) => {
+    let timer;
+    try {
+      return await Promise.race([
+        promise.catch((error) => { console.warn(error.message); return null; }),
+        new Promise((resolve) => {
+          timer = setTimeout(() => { console.warn("데이터 요청 시간이 초과되었습니다."); resolve(null); }, 10000);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
   const admin = isAdmin();
   const loggedIn = Boolean(getSession());
   const [classes, tests, notices, posts, applyFields, users, applications, myApplications] = await Promise.all([
@@ -2498,6 +2510,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     initHeroCarousel();
     setupAuth();
     setupCounselButton();
+    // 관리자 화면은 다른 API 응답을 기다리느라 빈 페이지로 남지 않게 먼저 표시한다.
+    initAdmin();
     await loadSiteData();
     renderClassPage();
     renderHomePreviews();
