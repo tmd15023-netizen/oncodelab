@@ -1523,14 +1523,14 @@ h3 { font-size: 22px; }
 .site-header .header-phone-popup a { display: block; padding: 9px 10px; border-radius: 7px; color: var(--navy); white-space: nowrap; }
 .site-header .header-phone-popup a:hover { background: var(--bg); }
 .site-header .site-header-nav { border-top: 1px solid var(--line); }
-.site-header .nav { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px 0; gap: 12px; border: 0; }
-.site-header .nav-item > a, .site-header .nav-item > span { font-size: 22.5px; padding: 8px 6px; }
+.site-header .nav { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1000px; margin: 0 auto; padding: 12px 0; gap: 12px; border: 0; }
+.site-header .nav-item > a, .site-header .nav-item > span { font-size: 22.5px; font-weight: 400; padding: 8px 6px; }
 @media (max-width: 980px) {
   .site-header .site-header-top { flex-wrap: wrap; gap: 12px; }
   .site-header .header-actions .btn-orange { display: inline-flex; }
   .site-header .menu-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; }
   .site-header .site-header-nav { border: 0; }
-  .site-header .nav { display: none; position: absolute; top: 100%; left: 0; right: 0; width: 100%; padding: 12px 20px 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; box-shadow: var(--shadow); flex-direction: column; align-items: stretch; gap: 0; }
+  .site-header .nav { display: none; position: absolute; top: 100%; left: 0; right: 0; width: 100%; max-width: none; margin: 0; padding: 12px 20px 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; box-shadow: var(--shadow); flex-direction: column; align-items: stretch; gap: 0; }
   .site-header .nav.open { display: flex; }
   .site-header .nav-item > a, .site-header .nav-item > span { padding: 12px 6px; }
 }
