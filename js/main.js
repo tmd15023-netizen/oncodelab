@@ -116,7 +116,9 @@ async function loadSiteData() {
       return await Promise.race([
         promise.catch((error) => { console.warn(error.message); return null; }),
         new Promise((resolve) => {
-          timer = setTimeout(() => { console.warn("데이터 요청 시간이 초과되었습니다."); resolve(null); }, 10000);
+          // Serverless cold starts can take longer than 10 seconds; do not show
+          // existing classes or admin records as an empty list prematurely.
+          timer = setTimeout(() => { console.warn("데이터 요청 시간이 초과되었습니다."); resolve(null); }, 60000);
         }),
       ]);
     } finally {

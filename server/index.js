@@ -383,7 +383,7 @@ app.get("/api/classes/:id/poster", async (req, res) => {
   if (!match) return res.status(404).end();
   res.set({
     "Content-Type": match[1],
-    "Cache-Control": "no-store",
+    "Cache-Control": "public, max-age=0, s-maxage=60",
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'none'; sandbox",
   });
