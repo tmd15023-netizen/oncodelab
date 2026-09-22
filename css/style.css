@@ -1513,7 +1513,8 @@ h3 { font-size: 22px; }
 .site-header .brand img { height: 50px; }
 .site-header .header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
 .site-header .header-consult, .site-header .header-account { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; color: var(--navy); font-size: 14px; font-weight: 400; white-space: nowrap; }
-.site-header .header-consult { padding: 8px 13px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+.site-header .header-consult { padding: 8px 13px; border: 1px solid #5d82a8; border-radius: 9px; background: #eaf3ff; color: #255a9b; }
+.site-header .header-consult:hover { background: #dcecff; }
 .site-header .header-account { padding: 8px 6px; }
 .site-header .header-admin { color: var(--green); }
 .site-header .header-inquiry { min-height: 42px; padding: 9px 15px; white-space: nowrap; }
