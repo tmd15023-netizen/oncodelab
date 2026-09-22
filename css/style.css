@@ -1476,7 +1476,7 @@ h3 { font-size: 22px; }
 .home-page .home-preview-copy strong, .home-page .home-test-card strong { font-size: 19px; color: var(--navy); }
 .home-page .home-preview-copy > span { line-height: 1.5; }
 .home-page .home-test-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.home-page .home-test-card { display: grid; align-content: start; gap: 10px; padding: 22px; min-height: 180px; }
+.home-page .home-test-card { display: grid; align-content: start; gap: 10px; padding: 22px; min-height: 180px; box-shadow: 0 8px 24px rgba(22, 50, 79, .11), 0 2px 6px rgba(22, 50, 79, .05); }
 .home-page .home-test-card > span:not(.home-test-label) { color: var(--muted); line-height: 1.5; }
 .home-page .home-test-label, .home-page .home-test-card b { color: var(--green); font-size: 13px; }
 .home-page .home-test-card b { align-self: end; margin-top: 12px; }
