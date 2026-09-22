@@ -163,29 +163,52 @@ function lockTest(id) {
 const COUNSEL_CHAT_URL = "https://open.kakao.com/o/seEpayjh";
 const COUNSEL_PHONE_NUMBERS = ["010-8748-2301", "010-4829-4794"];
 
-function setupCounselButton() {
-  const contactSpan = document.querySelector(".topbar .wrap span:last-child");
-  if (!contactSpan || contactSpan.dataset.counselReady) return;
-  contactSpan.dataset.counselReady = "true";
-  contactSpan.classList.add("topbar-contact");
-  const original = contactSpan.textContent.trim();
+function setupUnifiedHeader() {
+  const header = document.querySelector(".header");
+  const main = header?.querySelector(".header-main");
+  const brand = main?.querySelector(".brand");
+  const nav = main?.querySelector("#nav");
+  if (!header || !main || !brand || !nav) return;
+
+  const top = document.createElement("div");
+  top.className = "site-header-top";
+  const actions = document.createElement("div");
+  actions.className = "header-actions";
   const phoneLinks = COUNSEL_PHONE_NUMBERS.map((num) => `<a href="tel:${num.replace(/-/g, "")}">${escapeHtml(num)}</a>`).join("");
-  contactSpan.innerHTML = `<span class="topbar-line">${escapeHtml(original)}
-    <a class="topbar-cta" href="${escapeHtml(COUNSEL_CHAT_URL)}" target="_blank" rel="noopener">채팅상담</a>
-    <span class="topbar-phone-wrap">
-      <button type="button" class="topbar-cta" id="topbar-phone-btn">전화상담</button>
-      <div class="topbar-phone-popup" id="topbar-phone-popup">${phoneLinks}</div>
+  actions.innerHTML = `
+    <a class="header-consult" href="${escapeHtml(COUNSEL_CHAT_URL)}" target="_blank" rel="noopener">채팅상담</a>
+    <span class="header-phone-wrap">
+      <button class="header-consult" type="button" id="header-phone-btn" aria-expanded="false" aria-controls="header-phone-popup">전화상담</button>
+      <span class="header-phone-popup" id="header-phone-popup">${phoneLinks}</span>
     </span>
-  </span><small class="topbar-note">수업 진행 중에는 답변이 다소 늦어질 수 있는 점 양해 부탁드립니다.</small>`;
-  const phoneBtn = document.getElementById("topbar-phone-btn");
-  const phonePopup = document.getElementById("topbar-phone-popup");
+    <a class="btn btn-orange header-inquiry" href="contact">교육신청 / 문의</a>
+    <a class="header-account" href="#" data-auth="login">로그인</a>
+    <a class="header-account" href="#" data-auth="signup">회원가입</a>
+    <button class="menu-btn" type="button">메뉴</button>`;
+  actions.querySelector(".menu-btn")?.addEventListener("click", toggleMenu);
+  top.append(brand, actions);
+
+  const navRow = document.createElement("div");
+  navRow.className = "site-header-nav";
+  navRow.append(nav);
+  main.replaceChildren(top, navRow);
+  header.classList.add("site-header");
+  document.querySelector(".topbar")?.remove();
+}
+
+function setupCounselButton() {
+  const phoneBtn = document.getElementById("header-phone-btn");
+  const phonePopup = document.getElementById("header-phone-popup");
+  if (!phoneBtn || !phonePopup) return;
   phoneBtn?.addEventListener("click", (event) => {
     event.stopPropagation();
-    phonePopup?.classList.toggle("open");
+    const open = phonePopup.classList.toggle("open");
+    phoneBtn.setAttribute("aria-expanded", String(open));
   });
   document.addEventListener("click", (event) => {
-    if (phonePopup?.classList.contains("open") && !event.target.closest(".topbar-phone-wrap")) {
+    if (phonePopup.classList.contains("open") && !event.target.closest(".header-phone-wrap")) {
       phonePopup.classList.remove("open");
+      phoneBtn.setAttribute("aria-expanded", "false");
     }
   });
 }
@@ -664,14 +687,16 @@ function refreshAuthButton() {
   const session = getSession();
   const actions = document.querySelector(".header-actions");
   const loginBtn = actions?.querySelector("[data-auth='login']");
+  const signupBtn = actions?.querySelector("[data-auth='signup']");
   document.querySelector("[data-auth='mypage']")?.remove();
   document.querySelector("[data-auth='admin']")?.remove();
   // 관리자 계정은 헤더 버튼이 많아 복잡해지므로 방문객용 "교육신청 / 문의" 버튼은 숨긴다.
   const inquiryBtn = actions?.querySelector(".btn-orange");
   if (inquiryBtn) inquiryBtn.style.display = isAdmin() ? "none" : "";
+  if (signupBtn) signupBtn.style.display = session ? "none" : "";
   if (session && actions) {
     const mypage = Object.assign(document.createElement("a"), {
-      className: "btn btn-line",
+      className: "header-account",
       href: "mypage",
       textContent: "마이페이지",
     });
@@ -679,7 +704,7 @@ function refreshAuthButton() {
     actions.insertBefore(mypage, loginBtn || actions.firstChild);
     if (isAdmin()) {
       const adminBtn = Object.assign(document.createElement("a"), {
-        className: "btn btn-green",
+        className: "header-account header-admin",
         href: "admin",
         textContent: "어드민",
       });
@@ -1226,6 +1251,12 @@ function setupAuth() {
         return;
       }
       openAuth("login");
+    });
+  });
+  document.querySelectorAll("[data-auth='signup']").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
+      openAuth("signup");
     });
   });
   document.querySelectorAll("[data-auth-close]").forEach((el) => el.addEventListener("click", closeAuth));
@@ -2462,6 +2493,7 @@ function setupLivePolling() {
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     preventPublicPageCopy();
+    setupUnifiedHeader();
     renderCourses();
     initHeroCarousel();
     setupAuth();

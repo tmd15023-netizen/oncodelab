@@ -1505,3 +1505,43 @@ h3 { font-size: 22px; }
   .home-page .home-section-heading { align-items: center; }
   .home-page .home-board-row { flex-wrap: wrap; }
 }
+
+/* Shared two-row header used by every public and account page. */
+.site-header { position: relative; background: #fff; }
+.site-header .header-main { display: block; padding: 0; }
+.site-header .site-header-top { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 92px; padding: 17px 0; }
+.site-header .brand img { height: 50px; }
+.site-header .header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.site-header .header-consult, .site-header .header-account { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; color: var(--navy); font-size: 14px; font-weight: 700; white-space: nowrap; }
+.site-header .header-consult { padding: 8px 13px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+.site-header .header-account { padding: 8px 6px; }
+.site-header .header-admin { color: var(--green); }
+.site-header .header-inquiry { min-height: 42px; padding: 9px 15px; white-space: nowrap; }
+.site-header .header-phone-wrap { position: relative; display: inline-flex; }
+.site-header .header-phone-popup { display: none; position: absolute; top: calc(100% + 8px); right: 0; z-index: 70; min-width: 166px; padding: 8px; border: 1px solid var(--line); border-radius: 10px; background: #fff; box-shadow: var(--shadow); }
+.site-header .header-phone-popup.open { display: grid; gap: 2px; }
+.site-header .header-phone-popup a { display: block; padding: 9px 10px; border-radius: 7px; color: var(--navy); white-space: nowrap; }
+.site-header .header-phone-popup a:hover { background: var(--bg); }
+.site-header .site-header-nav { border-top: 1px solid var(--line); }
+.site-header .nav { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 12px 0; gap: 12px; border: 0; }
+.site-header .nav-item > a, .site-header .nav-item > span { font-size: 22.5px; padding: 8px 6px; }
+@media (max-width: 980px) {
+  .site-header .site-header-top { flex-wrap: wrap; gap: 12px; }
+  .site-header .header-actions .btn-orange { display: inline-flex; }
+  .site-header .menu-btn { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; }
+  .site-header .site-header-nav { border: 0; }
+  .site-header .nav { display: none; position: absolute; top: 100%; left: 0; right: 0; width: 100%; padding: 12px 20px 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #fff; box-shadow: var(--shadow); flex-direction: column; align-items: stretch; gap: 0; }
+  .site-header .nav.open { display: flex; }
+  .site-header .nav-item > a, .site-header .nav-item > span { padding: 12px 6px; }
+}
+@media (max-width: 700px) {
+  .site-header .site-header-top { padding: 14px 0; }
+  .site-header .header-actions { width: 100%; justify-content: flex-start; }
+  .site-header .header-actions .header-account { padding: 8px 4px; }
+  .site-header .header-actions .menu-btn { margin-left: auto; }
+}
+@media (max-width: 450px) {
+  .site-header .header-consult, .site-header .header-account { font-size: 13px; }
+  .site-header .header-consult { padding: 8px 10px; }
+  .site-header .header-inquiry { padding: 8px 11px; font-size: 13px; }
+}
