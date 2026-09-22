@@ -470,18 +470,30 @@ function isInstructorApply(item) {
 
 // Homepage previews read the same in-memory API results as the full pages.
 // No content is copied into markup or changed in storage.
+function classRecruitmentBadge(status) {
+  const value = String(status || "");
+  if (/종료|종강/.test(value)) return { label: "종료", tone: "ended" };
+  if (/마감/.test(value) && !/마감임박/.test(value)) return { label: "마감", tone: "closed" };
+  if (/모집중|접수중|마감임박/.test(value)) return { label: "모집중", tone: "recruiting" };
+  return null;
+}
+
 function renderHomePreviews() {
   const classes = document.getElementById("home-class-preview");
   const tests = document.getElementById("home-test-preview");
   const notices = document.getElementById("home-notice-preview");
   if (!classes || !tests || !notices) return;
   classes.innerHTML = classCache.length
-    ? classCache.slice(0, 4).map((item) => `<a class="home-preview-card" href="class-detail?id=${encodeURIComponent(item.id)}">
+    ? classCache.slice(0, 4).map((item) => {
+      const badge = classRecruitmentBadge(item.status);
+      return `<a class="home-preview-card" href="class-detail?id=${encodeURIComponent(item.id)}">
+        ${badge ? `<span class="home-preview-status is-${badge.tone}">${badge.label}</span>` : ""}
         ${item.posterUrl
           ? `<span class="home-preview-art home-preview-art-image"><img src="${escapeHtml(assetUrl(item.posterUrl))}" alt="${escapeHtml(item.title)} 포스터" loading="lazy" /></span>`
           : `<span class="home-preview-art ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</span>`}
         <span class="home-preview-copy"><small>${escapeHtml(item.status || "온라인 · 진행중")}</small><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.summary || "")}</span></span>
-      </a>`).join("")
+      </a>`;
+    }).join("")
     : `<p class="sub">현재 신청 가능한 Class가 없습니다.</p>`;
   tests.innerHTML = testCache.length
     ? testCache.slice(0, 3).map((item) => `<a class="home-preview-card home-test-card" href="diagnosis">
