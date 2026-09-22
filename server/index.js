@@ -359,13 +359,35 @@ app.get("/api/blog-reviews/thumbnail", async (req, res) => {
 
 app.get("/api/classes", async (req, res) => {
   const admin = isAdmin(await userFromReq(req));
-  const items = await col("classes").find({}).toArray();
+  const items = await col("classes").aggregate([{ $project: {
+    id: 1, label: 1, tone: 1, status: 1, title: 1, summary: 1, order: 1,
+    linkUrl: 1, fileUrl: 1, fileName: 1, password: 1,
+    // MongoDB returns only a marker for embedded posters, never the large data URL.
+    posterUrl: { $cond: [
+      { $eq: [{ $substrBytes: [{ $ifNull: ["$posterUrl", ""] }, 0, 11] }, "data:image/"] },
+      "data:image/",
+      { $ifNull: ["$posterUrl", ""] },
+    ] },
+  } }]).toArray();
   items.sort((a, b) => {
     const aOrder = Number.isFinite(Number(a.order)) ? Number(a.order) : Number.MAX_SAFE_INTEGER;
     const bOrder = Number.isFinite(Number(b.order)) ? Number(b.order) : Number.MAX_SAFE_INTEGER;
     return aOrder - bOrder;
   });
   res.json(items.map((item) => publicClass(item, { includeSecret: admin })));
+});
+
+app.get("/api/classes/:id/poster", async (req, res) => {
+  const item = await col("classes").findOne({ id: req.params.id }, { projection: { posterUrl: 1 } });
+  const match = /^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=]+)$/i.exec(item?.posterUrl || "");
+  if (!match) return res.status(404).end();
+  res.set({
+    "Content-Type": match[1],
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+  });
+  res.send(Buffer.from(match[2], "base64"));
 });
 
 app.post("/api/admin/classes/upload", requireAdmin, upload.single("file"), (req, res) => {
@@ -755,6 +777,9 @@ app.put("/api/admin/classes/order", requireAdmin, async (req, res) => {
 app.put("/api/admin/classes/:id", requireAdmin, async (req, res) => {
   const item = classPayload(req.body, req.params.id);
   if (!item.title) return res.status(400).json({ error: "교육 제목을 입력해 주세요." });
+  // The edit form receives an image endpoint, not the stored data URL.
+  // Keeping that endpoint means the existing image must remain untouched.
+  if (item.posterUrl === `/api/classes/${encodeURIComponent(req.params.id)}/poster`) delete item.posterUrl;
   await saveDoc(res, "classes", req.params.id, item, (doc) => publicClass(doc, { includeSecret: true }), "교육을 찾을 수 없습니다.");
 });
 

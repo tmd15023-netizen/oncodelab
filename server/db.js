@@ -108,6 +108,7 @@ export function publicTest(test, { includeSecret = false } = {}) {
 
 export function publicClass(cls, { includeSecret = false } = {}) {
   if (!cls) return null;
+  const posterUrl = String(cls.posterUrl || "");
   const base = {
     id: cls.id,
     label: cls.label,
@@ -115,7 +116,8 @@ export function publicClass(cls, { includeSecret = false } = {}) {
     status: cls.status,
     title: cls.title,
     summary: cls.summary,
-    posterUrl: cls.posterUrl || "",
+    // Keep the original image in MongoDB, but never embed it in a JSON response.
+    posterUrl: posterUrl.startsWith("data:image/") ? `/api/classes/${encodeURIComponent(cls.id)}/poster` : posterUrl,
     order: Number.isFinite(Number(cls.order)) ? Number(cls.order) : null,
   };
   return includeSecret
