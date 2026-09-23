@@ -125,18 +125,12 @@ async function loadSiteData() {
       clearTimeout(timer);
     }
   };
-  const admin = isAdmin();
   const loggedIn = Boolean(getSession());
-  const [classes, tests, notices, posts, applyFields, users, applications, myApplications] = await Promise.all([
-    safe(api("/api/classes")),
-    safe(api("/api/tests")),
-    safe(api("/api/notices")),
-    safe(api("/api/posts")),
-    safe(api("/api/apply-fields")),
-    admin ? safe(api("/api/admin/users")) : Promise.resolve(null),
-    admin ? safe(api("/api/admin/applications")) : Promise.resolve(null),
+  const [siteData, myApplications] = await Promise.all([
+    safe(api("/api/site-data")),
     loggedIn ? safe(api("/api/my-applications")) : Promise.resolve(null),
   ]);
+  const { classes, tests, notices, posts, applyFields, users, applications } = siteData || {};
   if (classes) classCache = classes;
   if (tests) testCache = tests;
   if (notices) noticeCache = notices;
@@ -2554,6 +2548,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     setupCounselButton();
     // 관리자 화면은 다른 API 응답을 기다리느라 빈 페이지로 남지 않게 먼저 표시한다.
     initAdmin();
+    // The shell and navigation are ready; data cards can fill in without a
+    // full-screen overlay blocking the page during a serverless cold start.
+    hidePageLoading();
     await loadSiteData();
     renderClassPage();
     renderHomePreviews();

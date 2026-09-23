@@ -69,6 +69,24 @@ const isAdmin = (user) => (user?.role || "user") === "admin";
 const makeId = (prefix) => `${prefix}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
 const unwrap = (doc) => (doc?.id || doc?.email ? doc : doc?.value || null);
 const bearer = (req) => (req.headers.authorization || "").replace(/^Bearer\s/, "");
+const classListProjection = {
+  id: 1, label: 1, tone: 1, status: 1, title: 1, summary: 1, order: 1,
+  linkUrl: 1, fileUrl: 1, fileName: 1, password: 1,
+  // MongoDB returns only a marker for embedded posters, never the large data URL.
+  posterUrl: { $cond: [
+    { $eq: [{ $substrBytes: [{ $ifNull: ["$posterUrl", ""] }, 0, 11] }, "data:image/"] },
+    "data:image/",
+    { $ifNull: ["$posterUrl", ""] },
+  ] },
+};
+
+function sortClasses(items) {
+  return items.sort((a, b) => {
+    const aOrder = Number.isFinite(Number(a.order)) ? Number(a.order) : Number.MAX_SAFE_INTEGER;
+    const bOrder = Number.isFinite(Number(b.order)) ? Number(b.order) : Number.MAX_SAFE_INTEGER;
+    return aOrder - bOrder;
+  });
+}
 
 function validPhone(phone) {
   return /^01[016789]\d{7,8}$/.test(String(phone || "").replace(/\D/g, ""));
@@ -359,22 +377,34 @@ app.get("/api/blog-reviews/thumbnail", async (req, res) => {
 
 app.get("/api/classes", async (req, res) => {
   const admin = isAdmin(await userFromReq(req));
-  const items = await col("classes").aggregate([{ $project: {
-    id: 1, label: 1, tone: 1, status: 1, title: 1, summary: 1, order: 1,
-    linkUrl: 1, fileUrl: 1, fileName: 1, password: 1,
-    // MongoDB returns only a marker for embedded posters, never the large data URL.
-    posterUrl: { $cond: [
-      { $eq: [{ $substrBytes: [{ $ifNull: ["$posterUrl", ""] }, 0, 11] }, "data:image/"] },
-      "data:image/",
-      { $ifNull: ["$posterUrl", ""] },
-    ] },
-  } }]).toArray();
-  items.sort((a, b) => {
-    const aOrder = Number.isFinite(Number(a.order)) ? Number(a.order) : Number.MAX_SAFE_INTEGER;
-    const bOrder = Number.isFinite(Number(b.order)) ? Number(b.order) : Number.MAX_SAFE_INTEGER;
-    return aOrder - bOrder;
-  });
+  const items = sortClasses(await col("classes").aggregate([{ $project: classListProjection }]).toArray());
   res.json(items.map((item) => publicClass(item, { includeSecret: admin })));
+});
+
+// The first page used to start seven separate serverless requests. One bundled
+// query avoids repeated cold-start and database connection work.
+app.get("/api/site-data", async (req, res) => {
+  const user = await userFromReq(req);
+  const admin = isAdmin(user);
+  const [classes, tests, notices, posts, applyFields, users, applications] = await Promise.all([
+    col("classes").aggregate([{ $project: classListProjection }]).toArray(),
+    col("tests").find({}).sort({ pinned: -1, pinnedAt: -1, _id: 1 }).toArray(),
+    col("notices").find({}).sort({ createdAt: -1 }).toArray(),
+    col("posts").find({}).sort({ createdAt: -1 }).toArray(),
+    col("applyFields").find({}).sort({ order: 1 }).toArray(),
+    admin ? col("users").find({}).project({ passwordHash: 0 }).toArray() : Promise.resolve(null),
+    admin ? col("applications").find({}).sort({ createdAt: -1 }).toArray() : Promise.resolve(null),
+  ]);
+  res.set("Cache-Control", "private, no-store");
+  res.json({
+    classes: sortClasses(classes).map((item) => publicClass(item, { includeSecret: admin })),
+    tests: tests.map((item) => publicTest(item, { includeSecret: admin })),
+    notices: notices.map(publicNotice),
+    posts: posts.map((post) => publicPost(post, { includeSecrets: admin })),
+    applyFields: applyFields.map(publicApplyField),
+    users: users?.map(publicUser) || null,
+    applications: applications?.map(publicApplication) || null,
+  });
 });
 
 app.get("/api/classes/:id/poster", async (req, res) => {
