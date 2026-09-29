@@ -1477,6 +1477,7 @@ h3 { font-size: 22px; }
 .home-page .home-preview-badges { position: absolute; z-index: 1; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 5px; }
 .home-page .home-preview-status { display: inline-flex; align-items: center; min-height: 28px; padding: 5px 12px; border-radius: 999px; color: #fff; background: #596575; font-size: 13px; font-weight: 700; line-height: 1; box-shadow: 0 2px 8px rgba(15, 36, 59, .18); }
 .home-page .home-preview-status.is-recruiting { background: #167a53; }
+.home-page .home-preview-status.is-active { background: #3f6fc4; }
 .home-page .home-preview-status.is-ended { background: #c73542; }
 .home-page .home-preview-art { display: flex; align-items: end; height: 130px; padding: 17px; background: linear-gradient(135deg, #224a7a, #74a9df); color: #fff; font-size: 22px; font-weight: 800; }
 .home-page .home-preview-card:nth-child(2) .home-preview-art { background: linear-gradient(135deg, #247b7b, #7bc2b6); }

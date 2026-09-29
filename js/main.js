@@ -475,6 +475,7 @@ function classRecruitmentBadges(status) {
   const has = (pattern) => parts.some((part) => pattern.test(part));
   return [
     has(/모집중|접수중|마감임박/) && { label: "모집중", tone: "recruiting" },
+    has(/진행중/) && { label: "진행중", tone: "active" },
     has(/마감(?!임박)/) && { label: "마감", tone: "closed" },
     has(/종료|종강/) && { label: "종료", tone: "ended" },
   ].filter(Boolean);
@@ -1822,7 +1823,7 @@ function adminClassPanel(editing) {
         <fieldset class="class-status-group">
           <legend>모집 상태 <small>중복 선택 가능</small></legend>
           <div class="class-status-options">
-            ${["접수중", "마감", "종료"].map((stage) => `<label class="class-status-chip"><input type="checkbox" name="classStage" value="${stage}" ${selectedStage(stage) ? "checked" : ""} /><span>${stage}</span></label>`).join("")}
+            ${["접수중", "진행중", "마감", "종료"].map((stage) => `<label class="class-status-chip"><input type="checkbox" name="classStage" value="${stage}" ${selectedStage(stage) ? "checked" : ""} /><span>${stage}</span></label>`).join("")}
           </div>
         </fieldset>
         <input required name="title" placeholder="교육 제목" value="${escapeHtml(editing?.title || "")}" />
