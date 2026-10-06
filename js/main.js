@@ -18,6 +18,8 @@ function hidePageLoading() {
   setTimeout(() => overlay.remove(), 250);
 }
 let classCache = [];
+let classListPage = 1;
+const CLASS_PAGE_SIZE = 9;
 let testCache = [];
 let userCache = [];
 let applyCache = [];
@@ -338,11 +340,30 @@ function renderClassPage() {
   if (!box) return;
   const count = document.getElementById("class-total-count");
   if (count) count.textContent = classCache.length;
+  const pageCount = Math.ceil(classCache.length / CLASS_PAGE_SIZE);
+  classListPage = Math.max(1, Math.min(classListPage, pageCount || 1));
+  const pagination = document.getElementById("class-pagination");
+  if (pagination) {
+    pagination.hidden = pageCount <= 1;
+    pagination.innerHTML = pageCount > 1 ? `
+      <button type="button" data-class-page="${classListPage - 1}" aria-label="이전 페이지" ${classListPage === 1 ? "disabled" : ""}>‹</button>
+      ${Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => `<button type="button" data-class-page="${page}" aria-label="${page}페이지" ${page === classListPage ? 'aria-current="page"' : ""}>${page}</button>`).join("")}
+      <button type="button" data-class-page="${classListPage + 1}" aria-label="다음 페이지" ${classListPage === pageCount ? "disabled" : ""}>›</button>` : "";
+    pagination.onclick = (event) => {
+      const button = event.target.closest("button[data-class-page]");
+      if (!button || button.disabled) return;
+      classListPage = Number(button.dataset.classPage);
+      renderClassPage();
+      document.querySelector(".class-program-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      pagination.querySelector('[aria-current="page"]')?.focus({ preventScroll: true });
+    };
+  }
   if (!classCache.length) {
     box.innerHTML = `<p class="class-list-empty">등록된 교육이 없습니다.</p>`;
     return;
   }
   box.innerHTML = classCache
+    .slice((classListPage - 1) * CLASS_PAGE_SIZE, classListPage * CLASS_PAGE_SIZE)
     .map((item) => {
       const detailUrl = `class-detail?id=${encodeURIComponent(item.id)}`;
       const badges = classRecruitmentBadges(item.status);
