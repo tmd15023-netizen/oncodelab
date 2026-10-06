@@ -336,28 +336,35 @@ function initHeroCarousel() {
 function renderClassPage() {
   const box = document.getElementById("class-list");
   if (!box) return;
+  const count = document.getElementById("class-total-count");
+  if (count) count.textContent = classCache.length;
   if (!classCache.length) {
-    box.classList.remove("cards");
-    box.innerHTML = `<p class="sub">현재 신청 가능한 교육이 없습니다. API 서버가 실행 중인지 확인해 주세요.</p>`;
+    box.innerHTML = `<p class="class-list-empty">등록된 교육이 없습니다.</p>`;
     return;
   }
-  box.classList.add("cards");
   box.innerHTML = classCache
     .map((item) => {
+      const detailUrl = `class-detail?id=${encodeURIComponent(item.id)}`;
+      const badges = classRecruitmentBadges(item.status);
+      const modes = classStatusTokens(item.status).filter((part) => part === "온라인" || part === "오프라인").join(" · ");
       const access = myApplyAccess[item.id] || myApplyAccess[item.title];
       let actionHtml;
       if (access) {
-        actionHtml = `<a class="btn btn-orange" href="${escapeHtml(access.linkUrl || (access.fileUrl ? API + access.fileUrl : "#"))}" target="_blank" rel="noopener">수강하기</a>`;
+        const accessUrl = access.linkUrl || (access.fileUrl ? API + access.fileUrl : detailUrl);
+        actionHtml = `<a class="class-program-action" href="${escapeHtml(accessUrl)}" target="_blank" rel="noopener">수강하기 <span aria-hidden="true">→</span></a>`;
       } else {
-        actionHtml = `<a class="btn btn-orange" href="class-detail?id=${encodeURIComponent(item.id)}">신청하기</a>`;
+        actionHtml = `<a class="class-program-action" href="${detailUrl}">신청하기 <span aria-hidden="true">→</span></a>`;
       }
       return `
-      <article class="card">
-        <div class="thumb ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</div>
-        <div class="card-body">
-          <small>${escapeHtml(item.status || "온라인 · 진행중")}</small>
+      <article class="class-program-card">
+        <a class="class-program-cover" href="${detailUrl}" aria-label="${escapeHtml(item.title)} 상세 보기">
+          ${item.posterUrl ? `<img src="${escapeHtml(assetUrl(item.posterUrl))}" alt="${escapeHtml(item.title)} 교육 포스터" loading="lazy" decoding="async" />` : `<span class="class-program-placeholder">${escapeHtml(item.label || "CLASS")}</span>`}
+          ${badges.length ? `<span class="class-program-badges">${badges.map((badge) => `<span class="class-program-badge is-${badge.tone}">${badge.label}</span>`).join("")}</span>` : ""}
           <h3>${escapeHtml(item.title)}</h3>
-          <p>${escapeHtml(item.summary || "")}</p>
+        </a>
+        <div class="class-program-body">
+          <p class="class-program-category">${escapeHtml(item.label || "CLASS")}${modes ? ` <span>${escapeHtml(modes)}</span>` : ""}</p>
+          <div class="class-program-schedule"><span class="class-program-schedule-label">교육 일정 / 안내</span><p>${escapeHtml(item.summary || "상세 페이지에서 교육 안내를 확인해 주세요.")}</p></div>
           ${actionHtml}
         </div>
       </article>`;
