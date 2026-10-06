@@ -344,8 +344,8 @@ function renderClassPage() {
   classListPage = Math.max(1, Math.min(classListPage, pageCount || 1));
   const pagination = document.getElementById("class-pagination");
   if (pagination) {
-    pagination.hidden = pageCount <= 1;
-    pagination.innerHTML = pageCount > 1 ? `
+    pagination.hidden = pageCount === 0;
+    pagination.innerHTML = pageCount > 0 ? `
       <button type="button" data-class-page="${classListPage - 1}" aria-label="이전 페이지" ${classListPage === 1 ? "disabled" : ""}>‹</button>
       ${Array.from({ length: pageCount }, (_, index) => index + 1).map((page) => `<button type="button" data-class-page="${page}" aria-label="${page}페이지" ${page === classListPage ? 'aria-current="page"' : ""}>${page}</button>`).join("")}
       <button type="button" data-class-page="${classListPage + 1}" aria-label="다음 페이지" ${classListPage === pageCount ? "disabled" : ""}>›</button>` : "";
