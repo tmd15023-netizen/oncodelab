@@ -275,7 +275,10 @@ body:not(.admin-body) img {
   aspect-ratio: 16 / 9;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 24px 48px rgba(15, 36, 59, .18);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, .9),
+    0 0 22px rgba(15, 36, 59, .32),
+    0 14px 32px rgba(15, 36, 59, .28);
   cursor: pointer;
   transition: transform .6s cubic-bezier(.25, .8, .3, 1), opacity .6s ease;
 }
@@ -1522,7 +1525,7 @@ h3 { font-size: 22px; }
 .home-page .nav { order: 3; width: 100%; justify-content: center; border-top: 1px solid var(--line); }
 .home-page .home-main { width: min(1280px, calc(100% - 40px)); margin: 28px auto 42px; display: grid; gap: 22px; }
 .home-page .home-panel { min-width: 0; background: #fff; border: 1px solid #e3eaf0; border-radius: 20px; box-shadow: 0 8px 26px rgba(22,50,79,.035); }
-.home-page .hero-carousel-section { padding: 0; background: transparent; border-radius: 20px; }
+.home-page .hero-carousel-section { padding: 20px 0 8px; background: transparent; border-radius: 20px; }
 .home-page .hero-carousel { max-width: none; }
 .home-page .hero { min-height: 0; text-align: left; padding: 46px 5%; background: #e9f2fb; }
 .home-page .hero-copy { width: 100%; max-width: none; margin: 0; }
