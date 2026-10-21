@@ -734,7 +734,7 @@ app.post("/api/admin/applications", requireAdmin, async (req, res) => {
 app.put("/api/admin/applications/:id", requireAdmin, async (req, res) => {
   const current = await col("applications").findOne({ id: req.params.id });
   if (current?.kind === "instructor") {
-    const item = instructorApplyPayload(req.body, req.params.id, current);
+    const item = { ...instructorApplyPayload(req.body, req.params.id, current), viewedAt: null };
     return saveDoc(res, "applications", req.params.id, item, publicApplication, "신청 내역을 찾을 수 없습니다.");
   }
   const fields = await col("applyFields").find({}).sort({ order: 1 }).toArray();

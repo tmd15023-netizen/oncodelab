@@ -1163,6 +1163,13 @@ h3 { font-size: 22px; }
   font-weight: 800;
   letter-spacing: -0.04em;
 }
+.admin-stat[type="button"] { width: 100%; text-align: left; font: inherit; cursor: pointer; }
+.admin-stat[type="button"] span, .dash-nav button { color: #1a1a1a; }
+.admin-stat[type="button"]:hover { border-color: #999; }
+.admin-stat[type="button"]:focus-visible { outline: 2px solid #536eb6; outline-offset: 3px; }
+.admin-change-unread, .admin-change-unread span, .admin-change-unread b { color: #e60012 !important; }
+.admin-item[data-view-apply] b:not(.apply-unread) { color: #1a1a1a; }
+.dash-table td:nth-child(3):not(.apply-unread) { color: #1a1a1a; }
 
 .dash-table-wrap { margin-top: 16px; overflow: auto; }
 .dash-table {

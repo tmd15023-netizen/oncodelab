@@ -1564,7 +1564,7 @@ function initAdmin() {
       </div>
       <nav class="dash-nav">${tabs
         .map((tab) => {
-          return `<button type="button" data-admin-tab="${tab.id}" class="${adminNav === tab.id ? "active" : ""}">${tab.label}</button>`;
+          return `<button type="button" data-admin-tab="${tab.id}" class="${adminNav === tab.id ? "active" : ""} ${adminHasChanges(tab.id) ? "admin-change-unread" : ""}">${tab.label}</button>`;
         })
         .join("")}</nav>
       <div class="dash-check">
@@ -1606,6 +1606,7 @@ function initAdmin() {
     if (tab) {
       adminNav = tab.dataset.adminTab;
       adminTab = adminNav;
+      markAdminSectionViewed(adminTab);
       if (adminTab !== "class") editClassId = null;
       if (adminTab !== "test") editTestId = null;
       if (adminTab !== "apply" && adminTab !== "fields" && adminTab !== "instructors") {
@@ -1773,6 +1774,48 @@ function initAdmin() {
   });
 }
 
+function adminChangeItems(section) {
+  if (section === "applications") return applyCache;
+  if (section.startsWith("status:")) return applyCache.filter((item) => (item.status || "pending") === section.slice(7));
+  return {
+    apply: applyCache.filter((item) => !isInstructorApply(item) && !isInquiryApply(item)),
+    instructors: applyCache.filter(isInstructorApply),
+    fields: applyCache.filter(isInquiryApply),
+    class: classCache, test: testCache, users: userCache, notice: noticeCache, community: postCache,
+  }[section] || [];
+}
+
+function adminSectionSignature(section) {
+  // Persist only a fingerprint, not applicant details or course credentials.
+  const text = JSON.stringify(adminChangeItems(section).map(({ unlockCount, ...item }) => item));
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 16777619);
+  return String(hash >>> 0);
+}
+
+function adminSeenKey(section) {
+  return `oncodelab-admin-seen:${getSession()?.email || "admin"}:${section}`;
+}
+
+function adminHasChanges(section) {
+  if (section === "overview") return ["applications", "class", "test", "users", "notice", "community"].some(adminHasChanges);
+  const items = adminChangeItems(section);
+  if (!items.length) return false;
+  if (["applications", "apply", "instructors", "fields"].includes(section) || section.startsWith("status:")) return items.some(isApplyUnread);
+  try { return localStorage.getItem(adminSeenKey(section)) !== adminSectionSignature(section); }
+  catch { return false; }
+}
+
+function markAdminSectionViewed(section) {
+  if (!["class", "test", "users", "notice", "community"].includes(section)) return;
+  try { localStorage.setItem(adminSeenKey(section), adminSectionSignature(section)); }
+  catch (error) { console.warn(error.message); }
+}
+
+function adminStat(label, value, section, tab = section) {
+  return `<button type="button" class="admin-stat ${adminHasChanges(section) ? "admin-change-unread" : ""}" data-admin-tab="${tab}"><span>${label}</span><b>${value}</b></button>`;
+}
+
 function adminOverview() {
   const recent = applyCache.slice(0, 8);
   const rows = recent.length
@@ -1804,15 +1847,17 @@ function adminOverview() {
         <p>수업 신청·회원·Class 현황을 한눈에 확인하세요.</p>
       </div>
       <div class="admin-stats">
-        <div class="admin-stat"><span>전체 신청</span><b>${applyCache.length}건</b></div>
-        <div class="admin-stat"><span>접수 대기</span><b>${applyCount("pending")}건</b></div>
-        <div class="admin-stat"><span>확인 완료</span><b>${applyCount("confirmed")}건</b></div>
-        <div class="admin-stat"><span>상담진행중</span><b>${applyCount("counseling")}건</b></div>
-        <div class="admin-stat"><span>처리 완료</span><b>${applyCount("done")}건</b></div>
-        <div class="admin-stat"><span>가입자 수</span><b>${userCache.length}명</b></div>
-        <div class="admin-stat"><span>등록 Class</span><b>${classCache.length}개</b></div>
-        <div class="admin-stat"><span>공지사항</span><b>${noticeCache.length}건</b></div>
-        <div class="admin-stat"><span>커뮤니티 글</span><b>${postCache.length}건</b></div>
+        ${adminStat("전체 신청", `${applyCache.length}건`, "applications", "apply")}
+        ${adminStat("접수 대기", `${applyCount("pending")}건`, "status:pending", "apply")}
+        ${adminStat("확인 완료", `${applyCount("confirmed")}건`, "status:confirmed", "apply")}
+        ${adminStat("상담진행중", `${applyCount("counseling")}건`, "status:counseling", "apply")}
+        ${adminStat("처리 완료", `${applyCount("done")}건`, "status:done", "apply")}
+        ${adminStat("강사 신청", `${applyCache.filter(isInstructorApply).length}건`, "instructors")}
+        ${adminStat("수업 문의", `${applyCache.filter(isInquiryApply).length}건`, "fields")}
+        ${adminStat("가입자 수", `${userCache.length}명`, "users")}
+        ${adminStat("등록 Class", `${classCache.length}개`, "class")}
+        ${adminStat("공지사항", `${noticeCache.length}건`, "notice")}
+        ${adminStat("커뮤니티 글", `${postCache.length}건`, "community")}
       </div>
     </section>
     <section class="dash-card">
@@ -1955,11 +2000,12 @@ function isApplyUnread(item) {
 async function markApplyViewed(id) {
   const item = applyCache.find((entry) => entry.id === id);
   if (!item || item.viewedAt) return;
-  item.viewedAt = new Date().toISOString();
   try {
-    await api(`/api/admin/applications/${encodeURIComponent(id)}/viewed`, { method: "POST" });
+    const updated = await api(`/api/admin/applications/${encodeURIComponent(id)}/viewed`, { method: "POST" });
+    Object.assign(item, updated);
+    initAdmin();
   } catch (error) {
-    console.warn(error.message);
+    window.alert("읽음 상태를 저장하지 못했습니다. 다시 확인해 주세요.");
   }
 }
 
@@ -2546,6 +2592,24 @@ function isTypingInside(container) {
 }
 
 function setupLivePolling() {
+  const adminBox = document.getElementById("admin");
+  if (adminBox) {
+    let refreshing = false;
+    setInterval(async () => {
+      if (refreshing || document.hidden || !isAdmin() || isTypingInside(adminBox) || adminTab !== "overview") return;
+      refreshing = true;
+      try {
+        const data = await api("/api/site-data");
+        // Recheck after the request so a tab switch or an edit is never replaced.
+        if (!isAdmin() || adminTab !== "overview" || isTypingInside(adminBox)) return;
+        classCache = data.classes; testCache = data.tests; noticeCache = data.notices;
+        postCache = data.posts; applyFieldCache = data.applyFields;
+        userCache = data.users || []; applyCache = data.applications || [];
+        initAdmin();
+      } catch (error) { console.warn(error.message); }
+      finally { refreshing = false; }
+    }, 30000);
+  }
   const watchers = [
     { containerId: "class-list", path: "/api/classes", setCache: (v) => (classCache = v), render: () => { renderClassPage(); fillInquiryOptions(); } },
     { containerId: "test-list", path: "/api/tests", setCache: (v) => (testCache = v), render: initTests },
