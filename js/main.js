@@ -279,6 +279,8 @@ function updateHeroCarousel() {
     if (diff > total / 2) diff -= total;
     if (diff < -total / 2) diff += total;
     const abs = Math.abs(diff);
+    slide.classList.toggle("is-center", abs === 0);
+    slide.classList.toggle("is-side", abs === 1);
     let transform;
     let opacity;
     let zIndex;
