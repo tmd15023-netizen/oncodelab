@@ -180,6 +180,15 @@ function setupUnifiedHeader() {
   const nav = main?.querySelector("#nav");
   if (!header || !main || !brand || !nav) return;
 
+  // Reuse the footer's instructor application page in every shared header.
+  if (!nav.querySelector('a[href="instructor"]')) {
+    const instructorItem = document.createElement("div");
+    instructorItem.className = "nav-item";
+    const onInstructorPage = /\/instructor(?:\.html)?\/?$/.test(location.pathname);
+    instructorItem.innerHTML = `<a href="instructor"${onInstructorPage ? ' class="active" aria-current="page"' : ""}>강사신청</a>`;
+    nav.appendChild(instructorItem);
+  }
+
   const top = document.createElement("div");
   top.className = "site-header-top";
   const actions = document.createElement("div");
