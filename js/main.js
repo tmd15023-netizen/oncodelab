@@ -1795,7 +1795,7 @@ function initAdmin() {
 function adminPopupPanel() {
   const item = popupCache || {};
   return `<section class="profile-card"><h2>홈페이지 팝업 관리</h2>
-    <p class="sub">홈페이지에 접속하면 화면 중앙에 표시됩니다. PC에서는 화면 면적의 약 ¼ 크기이며, 이미지 전체가 보이도록 맞춰집니다.</p>
+    <p class="sub">A4 세로형 포스터(가로:세로 210:297)를 등록해 주세요. 화면 중앙에서 기기 높이에 맞게 줄여 이미지 전체를 표시합니다.</p>
     <form class="admin-form" id="popup-form">
       <label>팝업 제목<input name="title" maxlength="100" value="${escapeHtml(item.title || "온코드랩 안내")}" required /></label>
       <label>팝업 이미지 (PNG · JPG · WEBP · GIF, 3MB 이하)<input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif" ${item.imageUrl ? "" : "required"} /></label>
