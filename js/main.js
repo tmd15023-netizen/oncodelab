@@ -268,6 +268,7 @@ function renderCourses(type = "all") {
 
 const HERO_CAROUSEL_COUNT = 18;
 const HERO_CAROUSEL_IMAGE_VERSION = "20261021-new-images";
+const HERO_CAROUSEL_IMAGE_OVERRIDES = { 9: "20261021-hero9-v2" };
 const HERO_CAROUSEL_INTERVAL_MS = 5000;
 let heroCarouselIndex = 0;
 let heroCarouselTimer = null;
@@ -331,7 +332,7 @@ function initHeroCarousel() {
   if (!track || !dots) return;
   track.innerHTML = Array.from(
     { length: HERO_CAROUSEL_COUNT },
-    (_, i) => `<div class="hero-slide" data-index="${i}"><img src="images/hero${i + 1}.png?v=${HERO_CAROUSEL_IMAGE_VERSION}" alt="온코드랩 수업 사례 ${i + 1}" loading="${i === 0 ? "eager" : "lazy"}" decoding="async" /></div>`,
+    (_, i) => `<div class="hero-slide" data-index="${i}"><img src="images/hero${i + 1}.png?v=${HERO_CAROUSEL_IMAGE_OVERRIDES[i + 1] || HERO_CAROUSEL_IMAGE_VERSION}" alt="온코드랩 수업 사례 ${i + 1}" loading="${i === 0 ? "eager" : "lazy"}" decoding="async" /></div>`,
   ).join("");
   const dotButtons = Array.from({ length: HERO_CAROUSEL_COUNT }, (_, i) => `<button type="button" data-hero-dot="${i}" aria-label="${i + 1}번째 이미지로 이동"></button>`).join("");
   dots.innerHTML = `
