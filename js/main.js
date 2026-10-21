@@ -264,7 +264,7 @@ function renderCourses(type = "all") {
 }
 
 const HERO_CAROUSEL_COUNT = 18;
-const HERO_CAROUSEL_IMAGE_VERSION = "20261021-refresh";
+const HERO_CAROUSEL_IMAGE_VERSION = "20261021-new-images";
 const HERO_CAROUSEL_INTERVAL_MS = 5000;
 let heroCarouselIndex = 0;
 let heroCarouselTimer = null;
