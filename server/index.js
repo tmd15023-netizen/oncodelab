@@ -383,10 +383,37 @@ app.get("/api/classes", async (req, res) => {
 
 // The first page used to start seven separate serverless requests. One bundled
 // query avoids repeated cold-start and database connection work.
+function publicPopup(item) {
+  if (!item) return null;
+  return { title: item.title || "온코드랩 안내", enabled: Boolean(item.enabled), linkUrl: item.linkUrl || "", imageUrl: item.hasImage ? `/api/popup/image?v=${encodeURIComponent(item.imageVersion || "1")}` : "" };
+}
+
+app.put("/api/admin/popup", requireAdmin, async (req, res) => {
+  const current = await col("popupSettings").findOne({ _id: "homepage" }, { projection: { imageDataUrl: 0 } });
+  const data = { title: String(req.body.title || "온코드랩 안내").trim().slice(0, 100), enabled: req.body.enabled === true, linkUrl: String(req.body.linkUrl || "").trim() };
+  if (data.linkUrl && !/^https?:\/\//i.test(data.linkUrl) && !/^\/(?!\/)/.test(data.linkUrl)) return res.status(400).json({ error: "연결 주소는 https:// 또는 /로 시작해야 합니다." });
+  if (req.body.imageDataUrl) {
+    const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(String(req.body.imageDataUrl));
+    if (!match || Buffer.from(match[2], "base64").length > 3 * 1024 * 1024) return res.status(400).json({ error: "PNG, JPG, WEBP, GIF 이미지(3MB 이하)를 등록해 주세요." });
+    Object.assign(data, { imageDataUrl: req.body.imageDataUrl, hasImage: true, imageVersion: crypto.randomBytes(8).toString("hex") });
+  }
+  if (data.enabled && !data.hasImage && !current?.hasImage) return res.status(400).json({ error: "팝업 이미지를 먼저 등록해 주세요." });
+  await col("popupSettings").updateOne({ _id: "homepage" }, { $set: data }, { upsert: true });
+  res.json(publicPopup({ ...current, ...data }));
+});
+
+app.get("/api/popup/image", async (_req, res) => {
+  const item = await col("popupSettings").findOne({ _id: "homepage" }, { projection: { imageDataUrl: 1 } });
+  const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(item?.imageDataUrl || "");
+  if (!match) return res.status(404).end();
+  res.set({ "Content-Type": match[1], "Cache-Control": "public, max-age=0, s-maxage=60", "X-Content-Type-Options": "nosniff" });
+  res.send(Buffer.from(match[2], "base64"));
+});
+
 app.get("/api/site-data", async (req, res) => {
   const user = await userFromReq(req);
   const admin = isAdmin(user);
-  const [classes, tests, notices, posts, applyFields, users, applications] = await Promise.all([
+  const [classes, tests, notices, posts, applyFields, users, applications, popup] = await Promise.all([
     col("classes").aggregate([{ $project: classListProjection }]).toArray(),
     col("tests").find({}).sort({ pinned: -1, pinnedAt: -1, _id: 1 }).toArray(),
     col("notices").find({}).sort({ createdAt: -1 }).toArray(),
@@ -394,6 +421,7 @@ app.get("/api/site-data", async (req, res) => {
     col("applyFields").find({}).sort({ order: 1 }).toArray(),
     admin ? col("users").find({}).project({ passwordHash: 0 }).toArray() : Promise.resolve(null),
     admin ? col("applications").find({}).sort({ createdAt: -1 }).toArray() : Promise.resolve(null),
+    col("popupSettings").findOne(admin ? { _id: "homepage" } : { _id: "homepage", enabled: true }, { projection: { imageDataUrl: 0 } }),
   ]);
   res.set("Cache-Control", "private, no-store");
   res.json({
@@ -404,6 +432,7 @@ app.get("/api/site-data", async (req, res) => {
     applyFields: applyFields.map(publicApplyField),
     users: users?.map(publicUser) || null,
     applications: applications?.map(publicApplication) || null,
+    popup: publicPopup(popup),
   });
 });
 

@@ -18,6 +18,8 @@ function hidePageLoading() {
   setTimeout(() => overlay.remove(), 250);
 }
 let classCache = [];
+let popupCache = null;
+let homePopupShown = false;
 let classListPage = 1;
 const CLASS_PAGE_SIZE = 9;
 let testCache = [];
@@ -140,6 +142,7 @@ async function loadSiteData() {
   if (applyFields) applyFieldCache = applyFields;
   if (users) userCache = users;
   if (applications) applyCache = applications;
+  if (siteData) popupCache = siteData.popup || null;
   myApplyAccess = {};
   if (myApplications) {
     for (const item of myApplications) {
@@ -1553,6 +1556,7 @@ function initAdmin() {
     { id: "apply", label: "Class 신청자" },
     { id: "instructors", label: "강사 신청자" },
     { id: "test", label: "TEST" },
+    { id: "popup", label: "팝업 관리" },
     { id: "notice", label: "공지사항" },
     { id: "community", label: "커뮤니티" },
     { id: "fields", label: "수업신청내역" },
@@ -1589,6 +1593,7 @@ function initAdmin() {
       ${adminTab === "overview" ? adminOverview() : ""}
       ${adminTab === "class" ? adminClassPanel(editingClass) : ""}
       ${adminTab === "test" ? adminTestPanel(editingTest) : ""}
+      ${adminTab === "popup" ? adminPopupPanel() : ""}
       ${adminTab === "apply" ? adminApplyPanel(editingApply) : ""}
       ${adminTab === "instructors" ? adminInstructorPanel() : ""}
       ${adminTab === "fields" ? adminFieldsPanel(editingField) : ""}
@@ -1760,6 +1765,16 @@ function initAdmin() {
     if (delUser) deleteUser(delUser.dataset.deleteUser, delUser.dataset.userName);
   };
   box.querySelector("#class-form")?.addEventListener("submit", (event) => saveAdminClass(event));
+  box.querySelector("#popup-form")?.addEventListener("submit", saveAdminPopup);
+  box.querySelector('#popup-form input[name="image"]')?.addEventListener("change", (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const preview = box.querySelector("#popup-image-preview");
+    const url = URL.createObjectURL(file);
+    preview.onload = preview.onerror = () => URL.revokeObjectURL(url);
+    preview.src = url;
+    preview.hidden = false;
+  });
   box.querySelector("#test-form")?.addEventListener("submit", (event) => saveAdminTest(event));
   box.querySelector("#apply-form")?.addEventListener("submit", (event) => saveAdminApply(event));
   box.querySelector("#notice-form")?.addEventListener("submit", (event) => saveAdminNotice(event));
@@ -1777,6 +1792,75 @@ function initAdmin() {
   });
 }
 
+function adminPopupPanel() {
+  const item = popupCache || {};
+  return `<section class="profile-card"><h2>홈페이지 팝업 관리</h2>
+    <p class="sub">홈페이지에 접속하면 화면 중앙에 표시됩니다. PC에서는 화면 면적의 약 ¼ 크기이며, 이미지 전체가 보이도록 맞춰집니다.</p>
+    <form class="admin-form" id="popup-form">
+      <label>팝업 제목<input name="title" maxlength="100" value="${escapeHtml(item.title || "온코드랩 안내")}" required /></label>
+      <label>팝업 이미지 (PNG · JPG · WEBP · GIF, 3MB 이하)<input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif" ${item.imageUrl ? "" : "required"} /></label>
+      <img id="popup-image-preview" class="admin-popup-preview" ${item.imageUrl ? `src="${escapeHtml(assetUrl(item.imageUrl))}"` : "hidden"} alt="등록할 팝업 미리보기" />
+      <label>이미지 클릭 시 이동할 주소 (선택)<input name="linkUrl" placeholder="https://... 또는 /class" value="${escapeHtml(item.linkUrl || "")}" /></label>
+      <label class="popup-enabled-label"><input type="checkbox" name="enabled" ${item.enabled ? "checked" : ""} /> 홈페이지에 팝업 표시</label>
+      <button class="btn btn-orange" type="submit">팝업 저장</button>
+    </form></section>`;
+}
+
+async function saveAdminPopup(event) {
+  event.preventDefault();
+  const form = event.target;
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  try {
+    const body = { title: form.elements.title.value.trim(), enabled: form.elements.enabled.checked, linkUrl: form.elements.linkUrl.value.trim() };
+    const file = form.elements.image.files?.[0];
+    if (file) {
+      if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) throw new Error("PNG, JPG, WEBP, GIF 이미지를 선택해 주세요.");
+      body.imageDataUrl = await posterFileToDataUrl(file);
+    }
+    popupCache = await api("/api/admin/popup", { method: "PUT", body: JSON.stringify(body) });
+    initAdmin();
+    window.alert("팝업 설정이 저장되었습니다.");
+  } catch (error) { window.alert(error.message); }
+  finally { button.disabled = false; }
+}
+
+function showHomePopup() {
+  if (!document.body.classList.contains("home-page") || homePopupShown || !popupCache?.enabled || !popupCache.imageUrl) return;
+  const imageUrl = popupCache.imageUrl;
+  try {
+    const dismissed = readJson(localStorage, "oncodelab-popup-dismissed", null);
+    if (dismissed?.imageUrl === imageUrl && dismissed.until > Date.now()) return;
+  } catch { /* Storage is optional. */ }
+  homePopupShown = true;
+  const dialog = document.createElement("dialog");
+  dialog.className = "home-image-popup";
+  dialog.setAttribute("aria-label", popupCache.title);
+  const image = `<img src="${escapeHtml(assetUrl(imageUrl))}" alt="${escapeHtml(popupCache.title)}" />`;
+  const link = popupCache.linkUrl;
+  const safeLink = /^https?:\/\//i.test(link || "") || /^\/(?!\/)/.test(link || "");
+  dialog.innerHTML = `<div class="home-popup-top"><strong>${escapeHtml(popupCache.title)}</strong><button type="button" data-popup-close aria-label="팝업 닫기">×</button></div>
+    <div class="home-popup-image">${safeLink ? `<a href="${escapeHtml(link)}">${image}</a>` : image}</div>
+    <div class="home-popup-bottom"><button type="button" data-popup-today>오늘 하루 보지 않기</button><button type="button" data-popup-close>닫기</button></div>`;
+  const previousFocus = document.activeElement;
+  const previousOverflow = document.body.style.overflow;
+  dialog.addEventListener("click", (event) => {
+    if (event.target.closest("[data-popup-today]")) {
+      const until = new Date(); until.setHours(24, 0, 0, 0);
+      try { localStorage.setItem("oncodelab-popup-dismissed", JSON.stringify({ imageUrl, until: until.getTime() })); } catch { /* Still allow closing. */ }
+      dialog.close();
+    } else if (event.target.closest("[data-popup-close]")) dialog.close();
+  });
+  dialog.addEventListener("close", () => {
+    document.body.style.overflow = previousOverflow;
+    dialog.remove();
+    previousFocus?.focus?.({ preventScroll: true });
+  }, { once: true });
+  document.body.append(dialog);
+  dialog.showModal();
+  document.body.style.overflow = "hidden";
+}
+
 function adminChangeItems(section) {
   if (section === "applications") return applyCache;
   if (section.startsWith("status:")) return applyCache.filter((item) => (item.status || "pending") === section.slice(7));
@@ -1785,6 +1869,7 @@ function adminChangeItems(section) {
     instructors: applyCache.filter(isInstructorApply),
     fields: applyCache.filter(isInquiryApply),
     class: classCache, test: testCache, users: userCache, notice: noticeCache, community: postCache,
+    popup: popupCache ? [popupCache] : [],
   }[section] || [];
 }
 
@@ -1801,7 +1886,7 @@ function adminSeenKey(section) {
 }
 
 function adminHasChanges(section) {
-  if (section === "overview") return ["applications", "class", "test", "users", "notice", "community"].some(adminHasChanges);
+  if (section === "overview") return ["applications", "class", "test", "users", "notice", "community", "popup"].some(adminHasChanges);
   const items = adminChangeItems(section);
   if (!items.length) return false;
   if (["applications", "apply", "instructors", "fields"].includes(section) || section.startsWith("status:")) return items.some(isApplyUnread);
@@ -1810,7 +1895,7 @@ function adminHasChanges(section) {
 }
 
 function markAdminSectionViewed(section) {
-  if (!["class", "test", "users", "notice", "community"].includes(section)) return;
+  if (!["class", "test", "users", "notice", "community", "popup"].includes(section)) return;
   try { localStorage.setItem(adminSeenKey(section), adminSectionSignature(section)); }
   catch (error) { console.warn(error.message); }
 }
@@ -2608,6 +2693,7 @@ function setupLivePolling() {
         classCache = data.classes; testCache = data.tests; noticeCache = data.notices;
         postCache = data.posts; applyFieldCache = data.applyFields;
         userCache = data.users || []; applyCache = data.applications || [];
+        popupCache = data.popup || null;
         initAdmin();
       } catch (error) { console.warn(error.message); }
       finally { refreshing = false; }
@@ -2657,6 +2743,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // full-screen overlay blocking the page during a serverless cold start.
     hidePageLoading();
     await loadSiteData();
+    showHomePopup();
     renderClassPage();
     renderHomePreviews();
     renderClassDetailPage();
