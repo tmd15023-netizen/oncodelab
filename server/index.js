@@ -36,6 +36,10 @@ if (!isServerless) {
   app.get("/:page", (req, res, next) => {
     const page = req.params.page.replace(/\.html$/, "");
     if (!pages.has(page)) return next();
+    if (page === "index" || req.params.page.endsWith(".html")) {
+      const query = req.originalUrl.slice(req.path.length);
+      return res.redirect(308, `${page === "index" ? "/" : `/${page}`}${query}`);
+    }
     res.sendFile(path.join(siteRoot, `${page}.html`));
   });
 }

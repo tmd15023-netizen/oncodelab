@@ -1540,7 +1540,7 @@ function initAdmin() {
   }
   if (!isAdmin()) {
     box.className = "admin-gate";
-    box.innerHTML = noticeCard("접근 권한이 없습니다", "일반 회원은 어드민 페이지를 볼 수 없습니다.", `<p><a class="btn btn-line" href="index">홈으로 이동</a></p>`);
+    box.innerHTML = noticeCard("접근 권한이 없습니다", "일반 회원은 어드민 페이지를 볼 수 없습니다.", `<p><a class="btn btn-line" href="/">홈으로 이동</a></p>`);
     return;
   }
 
@@ -1586,7 +1586,7 @@ function initAdmin() {
         </ul>
       </div>
       <div class="dash-side-links">
-        <a href="index">사이트로 이동</a>
+        <a href="/">사이트로 이동</a>
         <button type="button" data-admin-logout>로그아웃</button>
       </div>
     </aside>
