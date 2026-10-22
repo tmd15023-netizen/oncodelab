@@ -25,7 +25,7 @@ function fixture() {
     },
   };
   vm.runInNewContext(source.slice(source.indexOf("function publicPopup("), source.indexOf('app.get("/api/site-data"')), context);
-  async function request(method, path, body = {}) {
+  async function request(method, path, body = {}, { params = {}, query = {} } = {}) {
     const handlers = routes.get(`${method} ${path}`);
     const res = {
       statusCode: 200, headers: {},
@@ -35,7 +35,7 @@ function fixture() {
       send(value) { this.body = value; },
       end() {},
     };
-    await handlers.at(-1)({ body }, res);
+    await handlers.at(-1)({ body, params, query }, res);
     return res;
   }
   return { request, routes, requireAdmin };
@@ -66,7 +66,31 @@ test("popup rejects activation without image, unsafe URLs, SVG and oversized dat
     { enabled: true },
     { linkUrl: "javascript:alert(1)" },
     { linkUrl: "//example.com" },
+    { link2Url: "javascript:alert(1)" },
     { imageDataUrl: "data:image/svg+xml;base64,aGVsbG8=" },
     { imageDataUrl: `data:image/png;base64,${Buffer.alloc(3 * 1024 * 1024 + 1).toString("base64")}` },
   ]) assert.equal((await app.request("PUT", "/api/admin/popup", body)).statusCode, 400);
+});
+
+test("two posters upload independently and retain their individual images and links", async () => {
+  const app = fixture();
+  const path = "/api/admin/popup/images/:slot";
+  assert.equal(app.routes.get(`PUT ${path}`)[0], app.requireAdmin);
+  const upload = (slot, text) => app.request("PUT", path, { imageDataUrl: `data:image/png;base64,${Buffer.from(text).toString("base64")}` }, { params: { slot } });
+  assert.equal((await upload("3", "invalid slot")).statusCode, 400);
+  assert.equal((await upload("1", "poster one")).statusCode, 200);
+  assert.equal((await upload("2", "poster two")).statusCode, 200);
+  const saved = await app.request("PUT", "/api/admin/popup", { enabled: true, title: "두 포스터", linkUrl: "/class", link2Url: "/contact", secondEnabled: true });
+  assert.equal(saved.body.link2Url, "/contact");
+  assert.equal(saved.body.secondEnabled, true);
+  assert.match(saved.body.image2Url, /^\/api\/popup\/image\?slot=2&v=/);
+  assert.equal(JSON.stringify(saved.body).includes("base64"), false);
+  assert.equal((await app.request("GET", "/api/popup/image")).body.toString(), "poster one");
+  assert.equal((await app.request("GET", "/api/popup/image", {}, { query: { slot: "2" } })).body.toString(), "poster two");
+  await upload("2", "updated poster two");
+  const updated = await app.request("PUT", "/api/admin/popup", { enabled: true, linkUrl: "/class", link2Url: "/contact", secondEnabled: false });
+  assert.equal(updated.body.imageUrl, saved.body.imageUrl);
+  assert.notEqual(updated.body.image2Url, saved.body.image2Url);
+  assert.equal(updated.body.secondEnabled, false);
+  assert.equal((await app.request("GET", "/api/popup/image")).body.toString(), "poster one");
 });

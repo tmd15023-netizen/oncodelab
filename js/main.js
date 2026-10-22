@@ -1767,14 +1767,16 @@ function initAdmin() {
   };
   box.querySelector("#class-form")?.addEventListener("submit", (event) => saveAdminClass(event));
   box.querySelector("#popup-form")?.addEventListener("submit", saveAdminPopup);
-  box.querySelector('#popup-form input[name="image"]')?.addEventListener("change", (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const preview = box.querySelector("#popup-image-preview");
-    const url = URL.createObjectURL(file);
-    preview.onload = preview.onerror = () => URL.revokeObjectURL(url);
-    preview.src = url;
-    preview.hidden = false;
+  ["image", "image2"].forEach((name, index) => {
+    box.querySelector(`#popup-form input[name="${name}"]`)?.addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      const preview = box.querySelector(`#popup-image-preview-${index + 1}`);
+      const url = URL.createObjectURL(file);
+      preview.onload = preview.onerror = () => URL.revokeObjectURL(url);
+      preview.src = url;
+      preview.hidden = false;
+    });
   });
   box.querySelector("#test-form")?.addEventListener("submit", (event) => saveAdminTest(event));
   box.querySelector("#apply-form")?.addEventListener("submit", (event) => saveAdminApply(event));
@@ -1796,12 +1798,23 @@ function initAdmin() {
 function adminPopupPanel() {
   const item = popupCache || {};
   return `<section class="profile-card"><h2>홈페이지 팝업 관리</h2>
-    <p class="sub">A4 세로형 포스터(가로:세로 210:297)를 등록해 주세요. 화면 중앙에서 기기 높이에 맞게 줄여 이미지 전체를 표시합니다.</p>
+    <p class="sub">A4 세로형 포스터 2장을 하나의 팝업에 나란히 표시합니다. 1번은 왼쪽, 2번은 오른쪽이며, 1장만 등록하면 기존 세로 팝업으로 표시됩니다.</p>
     <form class="admin-form" id="popup-form">
       <label>팝업 제목<input name="title" maxlength="100" value="${escapeHtml(item.title || "온코드랩 안내")}" required /></label>
-      <label>팝업 이미지 (PNG · JPG · WEBP · GIF, 3MB 이하)<input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif" ${item.imageUrl ? "" : "required"} /></label>
-      <img id="popup-image-preview" class="admin-popup-preview" ${item.imageUrl ? `src="${escapeHtml(assetUrl(item.imageUrl))}"` : "hidden"} alt="등록할 팝업 미리보기" />
-      <label>이미지 클릭 시 이동할 주소 (선택)<input name="linkUrl" placeholder="https://... 또는 /class" value="${escapeHtml(item.linkUrl || "")}" /></label>
+      <div class="popup-admin-posters">
+        <fieldset><legend>1번 포스터 · 왼쪽</legend>
+          <label>이미지 (3MB 이하)<input type="file" name="image" accept="image/png,image/jpeg,image/webp,image/gif" ${item.imageUrl ? "" : "required"} /></label>
+          <img id="popup-image-preview-1" class="admin-popup-preview" ${item.imageUrl ? `src="${escapeHtml(assetUrl(item.imageUrl))}"` : "hidden"} alt="1번 포스터 미리보기" />
+          <label>클릭 시 이동할 주소 (선택)<input name="linkUrl" placeholder="https://... 또는 /class" value="${escapeHtml(item.linkUrl || "")}" /></label>
+        </fieldset>
+        <fieldset><legend>2번 포스터 · 오른쪽 (선택)</legend>
+          <label>이미지 (3MB 이하)<input type="file" name="image2" accept="image/png,image/jpeg,image/webp,image/gif" /></label>
+          <img id="popup-image-preview-2" class="admin-popup-preview" ${item.image2Url ? `src="${escapeHtml(assetUrl(item.image2Url))}"` : "hidden"} alt="2번 포스터 미리보기" />
+          <label>클릭 시 이동할 주소 (선택)<input name="link2Url" placeholder="https://... 또는 /class" value="${escapeHtml(item.link2Url || "")}" /></label>
+          <label class="popup-enabled-label"><input type="checkbox" name="secondEnabled" ${item.secondEnabled !== false ? "checked" : ""} /> 2번 포스터 함께 표시</label>
+        </fieldset>
+      </div>
+      <p class="sub">PNG · JPG · WEBP · GIF 형식을 지원합니다. 새 이미지를 선택하지 않으면 기존 포스터를 유지합니다.</p>
       <label class="popup-enabled-label"><input type="checkbox" name="enabled" ${item.enabled ? "checked" : ""} /> 홈페이지에 팝업 표시</label>
       <button class="btn btn-orange" type="submit">팝업 저장</button>
     </form></section>`;
@@ -1813,11 +1826,17 @@ async function saveAdminPopup(event) {
   const button = form.querySelector('button[type="submit"]');
   button.disabled = true;
   try {
-    const body = { title: form.elements.title.value.trim(), enabled: form.elements.enabled.checked, linkUrl: form.elements.linkUrl.value.trim() };
-    const file = form.elements.image.files?.[0];
-    if (file) {
+    const body = { title: form.elements.title.value.trim(), enabled: form.elements.enabled.checked, linkUrl: form.elements.linkUrl.value.trim(), link2Url: form.elements.link2Url.value.trim(), secondEnabled: form.elements.secondEnabled.checked };
+    if ([body.linkUrl, body.link2Url].some((url) => url && !/^https?:\/\//i.test(url) && !/^\/(?!\/)/.test(url))) throw new Error("연결 주소는 https:// 또는 /로 시작해야 합니다.");
+    const uploads = [];
+    for (const [index, name] of ["image", "image2"].entries()) {
+      const file = form.elements[name].files?.[0];
+      if (!file) continue;
       if (!["image/png", "image/jpeg", "image/webp", "image/gif"].includes(file.type)) throw new Error("PNG, JPG, WEBP, GIF 이미지를 선택해 주세요.");
-      body.imageDataUrl = await posterFileToDataUrl(file);
+      uploads.push({ slot: index + 1, imageDataUrl: await posterFileToDataUrl(file) });
+    }
+    for (const upload of uploads) {
+      await api(`/api/admin/popup/images/${upload.slot}`, { method: "PUT", body: JSON.stringify({ imageDataUrl: upload.imageDataUrl }) });
     }
     popupCache = await api("/api/admin/popup", { method: "PUT", body: JSON.stringify(body) });
     initAdmin();
@@ -1828,27 +1847,31 @@ async function saveAdminPopup(event) {
 
 function showHomePopup() {
   if (!document.body.classList.contains("home-page") || homePopupShown || !popupCache?.enabled || !popupCache.imageUrl) return;
-  const imageUrl = popupCache.imageUrl;
+  const posters = [{ imageUrl: popupCache.imageUrl, linkUrl: popupCache.linkUrl }];
+  if (popupCache.image2Url && popupCache.secondEnabled !== false) posters.push({ imageUrl: popupCache.image2Url, linkUrl: popupCache.link2Url });
+  const popupKey = posters.map((poster) => poster.imageUrl).join("|");
   try {
     const dismissed = readJson(localStorage, "oncodelab-popup-dismissed", null);
-    if (dismissed?.imageUrl === imageUrl && dismissed.until > Date.now()) return;
+    if ((dismissed?.popupKey || dismissed?.imageUrl) === popupKey && dismissed.until > Date.now()) return;
   } catch { /* Storage is optional. */ }
   homePopupShown = true;
   const dialog = document.createElement("dialog");
-  dialog.className = "home-image-popup";
+  dialog.className = `home-image-popup${posters.length === 2 ? " has-two-posters" : ""}`;
   dialog.setAttribute("aria-label", popupCache.title);
-  const image = `<img src="${escapeHtml(assetUrl(imageUrl))}" alt="${escapeHtml(popupCache.title)}" />`;
-  const link = popupCache.linkUrl;
-  const safeLink = /^https?:\/\//i.test(link || "") || /^\/(?!\/)/.test(link || "");
+  const posterHtml = posters.map((poster, index) => {
+    const image = `<img src="${escapeHtml(assetUrl(poster.imageUrl))}" alt="${escapeHtml(popupCache.title)} · ${index + 1}번 포스터" />`;
+    const safeLink = /^https?:\/\//i.test(poster.linkUrl || "") || /^\/(?!\/)/.test(poster.linkUrl || "");
+    return `<div class="home-popup-image">${safeLink ? `<a href="${escapeHtml(poster.linkUrl)}">${image}</a>` : image}</div>`;
+  }).join("");
   dialog.innerHTML = `<div class="home-popup-top"><strong>${escapeHtml(popupCache.title)}</strong><button type="button" data-popup-close aria-label="팝업 닫기">×</button></div>
-    <div class="home-popup-image">${safeLink ? `<a href="${escapeHtml(link)}">${image}</a>` : image}</div>
+    <div class="home-popup-posters">${posterHtml}</div>
     <div class="home-popup-bottom"><button type="button" data-popup-today>오늘 하루 보지 않기</button><button type="button" data-popup-close>닫기</button></div>`;
   const previousFocus = document.activeElement;
   const previousOverflow = document.body.style.overflow;
   dialog.addEventListener("click", (event) => {
     if (event.target.closest("[data-popup-today]")) {
       const until = new Date(); until.setHours(24, 0, 0, 0);
-      try { localStorage.setItem("oncodelab-popup-dismissed", JSON.stringify({ imageUrl, until: until.getTime() })); } catch { /* Still allow closing. */ }
+      try { localStorage.setItem("oncodelab-popup-dismissed", JSON.stringify({ popupKey, until: until.getTime() })); } catch { /* Still allow closing. */ }
       dialog.close();
     } else if (event.target.closest("[data-popup-close]")) dialog.close();
   });

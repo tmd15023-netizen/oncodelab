@@ -385,13 +385,34 @@ app.get("/api/classes", async (req, res) => {
 // query avoids repeated cold-start and database connection work.
 function publicPopup(item) {
   if (!item) return null;
-  return { title: item.title || "온코드랩 안내", enabled: Boolean(item.enabled), linkUrl: item.linkUrl || "", imageUrl: item.hasImage ? `/api/popup/image?v=${encodeURIComponent(item.imageVersion || "1")}` : "" };
+  return {
+    title: item.title || "온코드랩 안내", enabled: Boolean(item.enabled),
+    linkUrl: item.linkUrl || "", imageUrl: item.hasImage ? `/api/popup/image?v=${encodeURIComponent(item.imageVersion || "1")}` : "",
+    link2Url: item.link2Url || "", image2Url: item.hasImage2 ? `/api/popup/image?slot=2&v=${encodeURIComponent(item.image2Version || "1")}` : "",
+    secondEnabled: item.secondEnabled !== false,
+  };
 }
 
+// Upload each poster separately so two large posters never exceed the host's
+// request-size limit. Metadata and image responses remain small and independent.
+app.put("/api/admin/popup/images/:slot", requireAdmin, async (req, res) => {
+  if (!["1", "2"].includes(req.params.slot)) return res.status(400).json({ error: "포스터 번호를 확인해 주세요." });
+  const value = String(req.body.imageDataUrl || "");
+  const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(value);
+  if (!match || Buffer.from(match[2], "base64").length > 3 * 1024 * 1024) return res.status(400).json({ error: "PNG, JPG, WEBP, GIF 이미지(3MB 이하)를 등록해 주세요." });
+  const data = req.params.slot === "2"
+    ? { image2DataUrl: value, hasImage2: true, image2Version: crypto.randomBytes(8).toString("hex") }
+    : { imageDataUrl: value, hasImage: true, imageVersion: crypto.randomBytes(8).toString("hex") };
+  await col("popupSettings").updateOne({ _id: "homepage" }, { $set: data }, { upsert: true });
+  res.json({ ok: true });
+});
+
 app.put("/api/admin/popup", requireAdmin, async (req, res) => {
-  const current = await col("popupSettings").findOne({ _id: "homepage" }, { projection: { imageDataUrl: 0 } });
+  const current = await col("popupSettings").findOne({ _id: "homepage" }, { projection: { imageDataUrl: 0, image2DataUrl: 0 } });
   const data = { title: String(req.body.title || "온코드랩 안내").trim().slice(0, 100), enabled: req.body.enabled === true, linkUrl: String(req.body.linkUrl || "").trim() };
-  if (data.linkUrl && !/^https?:\/\//i.test(data.linkUrl) && !/^\/(?!\/)/.test(data.linkUrl)) return res.status(400).json({ error: "연결 주소는 https:// 또는 /로 시작해야 합니다." });
+  if (Object.hasOwn(req.body, "link2Url")) data.link2Url = String(req.body.link2Url || "").trim();
+  if (Object.hasOwn(req.body, "secondEnabled")) data.secondEnabled = req.body.secondEnabled === true;
+  if ([data.linkUrl, data.link2Url].some((url) => url && !/^https?:\/\//i.test(url) && !/^\/(?!\/)/.test(url))) return res.status(400).json({ error: "연결 주소는 https:// 또는 /로 시작해야 합니다." });
   if (req.body.imageDataUrl) {
     const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(String(req.body.imageDataUrl));
     if (!match || Buffer.from(match[2], "base64").length > 3 * 1024 * 1024) return res.status(400).json({ error: "PNG, JPG, WEBP, GIF 이미지(3MB 이하)를 등록해 주세요." });
@@ -402,9 +423,10 @@ app.put("/api/admin/popup", requireAdmin, async (req, res) => {
   res.json(publicPopup({ ...current, ...data }));
 });
 
-app.get("/api/popup/image", async (_req, res) => {
-  const item = await col("popupSettings").findOne({ _id: "homepage" }, { projection: { imageDataUrl: 1 } });
-  const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(item?.imageDataUrl || "");
+app.get("/api/popup/image", async (req, res) => {
+  const field = req.query.slot === "2" ? "image2DataUrl" : "imageDataUrl";
+  const item = await col("popupSettings").findOne({ _id: "homepage" }, { projection: { [field]: 1 } });
+  const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(item?.[field] || "");
   if (!match) return res.status(404).end();
   res.set({ "Content-Type": match[1], "Cache-Control": "public, max-age=0, s-maxage=60", "X-Content-Type-Options": "nosniff" });
   res.send(Buffer.from(match[2], "base64"));
@@ -421,7 +443,7 @@ app.get("/api/site-data", async (req, res) => {
     col("applyFields").find({}).sort({ order: 1 }).toArray(),
     admin ? col("users").find({}).project({ passwordHash: 0 }).toArray() : Promise.resolve(null),
     admin ? col("applications").find({}).sort({ createdAt: -1 }).toArray() : Promise.resolve(null),
-    col("popupSettings").findOne(admin ? { _id: "homepage" } : { _id: "homepage", enabled: true }, { projection: { imageDataUrl: 0 } }),
+    col("popupSettings").findOne(admin ? { _id: "homepage" } : { _id: "homepage", enabled: true }, { projection: { imageDataUrl: 0, image2DataUrl: 0 } }),
   ]);
   res.set("Cache-Control", "private, no-store");
   res.json({
