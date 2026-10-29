@@ -202,6 +202,7 @@ body:not(.admin-body) img {
 .dropdown a:hover { background: var(--bg); color: var(--green); }
 .site-header .notice-nav:not(.open) > .notice-dropdown { display: none; }
 .site-header .notice-nav.open > .notice-dropdown { display: block; }
+.site-header .notice-nav > a, .site-header .notice-nav > a.active, .site-header .notice-nav:hover > a { color: var(--navy); }
 .site-header .notice-dropdown { z-index: 100; min-width: 180px; }
 .site-header .notice-dropdown a.active { background: #edf3ff; color: #255a9b; }
 .site-header .notice-nav > a::after { content: "⌄"; display: inline-block; margin-left: 7px; font-size: 15px; transition: transform .2s; }
