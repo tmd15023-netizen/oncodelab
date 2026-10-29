@@ -1232,12 +1232,21 @@ async function deletePostFlow(id) {
   }
 }
 
+function updateBoardNavigation() {
+  const current = document.getElementById("notice-list") ? "notice" : communityTab;
+  document.querySelectorAll("[data-board-tab]").forEach((link) => {
+    if (link.dataset.boardTab === current) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+}
+
 function initCommunity() {
   const box = document.getElementById("community");
   if (!box) return;
   const tabParam = new URLSearchParams(location.search).get("tab");
   if (["info", "review", "question"].includes(tabParam)) communityTab = tabParam;
-  const tabsHtml = `<div class="tabs">
+  updateBoardNavigation();
+  const tabsHtml = document.querySelector(".board-navigation") ? "" : `<div class="tabs">
     <button type="button" class="tab ${communityTab === "info" ? "active" : ""}" data-community-tab="info">교육정보</button>
     <button type="button" class="tab ${communityTab === "review" ? "active" : ""}" data-community-tab="review">교육후기</button>
     <button type="button" class="tab ${communityTab === "question" ? "active" : ""}" data-community-tab="question">질문하기</button>
@@ -2796,6 +2805,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   try {
     preventPublicPageCopy();
     setupUnifiedHeader();
+    const initialBoardTab = new URLSearchParams(location.search).get("tab");
+    if (["info", "review", "question"].includes(initialBoardTab)) communityTab = initialBoardTab;
+    updateBoardNavigation();
     renderCourses();
     initHeroCarousel();
     setupAuth();
