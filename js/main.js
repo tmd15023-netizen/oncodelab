@@ -182,6 +182,7 @@ function setupUnifiedHeader() {
   const brand = main?.querySelector(".brand");
   const nav = main?.querySelector("#nav");
   if (!header || !main || !brand || !nav) return;
+  setupNoticeDropdown(nav);
 
   // Reuse the footer's instructor application page in every shared header.
   if (!nav.querySelector('a[href="instructor"]')) {
@@ -216,6 +217,44 @@ function setupUnifiedHeader() {
   main.replaceChildren(top, navRow);
   header.classList.add("site-header");
   document.querySelector(".topbar")?.remove();
+}
+
+function setupNoticeDropdown(nav) {
+  const link = nav.querySelector(':scope > .nav-item > a[href="notice"]');
+  if (!link || link.parentElement.querySelector(".notice-dropdown")) return;
+  const item = link.parentElement;
+  item.classList.add("notice-nav");
+  nav.querySelector(':scope > .nav-item > a[href="community"]')?.parentElement.remove();
+  const dropdown = document.createElement("div");
+  dropdown.className = "dropdown notice-dropdown";
+  dropdown.id = "notice-dropdown";
+  const currentTab = new URLSearchParams(location.search).get("tab") || "info";
+  const onCommunity = /\/community(?:\.html)?\/?$/.test(location.pathname);
+  if (onCommunity) link.classList.add("active");
+  dropdown.innerHTML = [["info", "커뮤니티"], ["review", "교육후기"], ["question", "질문하기"]].map(([tab, label]) =>
+    `<a href="community?tab=${tab}"${onCommunity && currentTab === tab ? ' class="active" aria-current="page"' : ""}>${label}</a>`
+  ).join("");
+  item.append(dropdown);
+  link.setAttribute("aria-expanded", "false");
+  link.setAttribute("aria-controls", dropdown.id);
+  const setOpen = (open) => {
+    item.classList.toggle("open", open);
+    link.setAttribute("aria-expanded", String(open));
+  };
+  item.addEventListener("mouseenter", () => { if (window.matchMedia("(hover: hover) and (min-width: 981px)").matches) setOpen(true); });
+  item.addEventListener("mouseleave", () => { if (!item.contains(document.activeElement)) setOpen(false); });
+  item.addEventListener("focusin", () => { if (window.innerWidth > 980) setOpen(true); });
+  item.addEventListener("focusout", (event) => { if (!item.contains(event.relatedTarget)) setOpen(false); });
+  link.addEventListener("click", (event) => {
+    if (window.innerWidth <= 980 && !item.classList.contains("open")) { event.preventDefault(); setOpen(true); }
+  });
+  item.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") { event.preventDefault(); link.focus(); setOpen(false); }
+    if (event.target === link && ["ArrowDown", " "].includes(event.key)) {
+      event.preventDefault(); setOpen(true); dropdown.querySelector("a")?.focus();
+    }
+  });
+  document.addEventListener("click", (event) => { if (!item.contains(event.target)) setOpen(false); });
 }
 
 function setupCounselButton() {
