@@ -29,6 +29,7 @@ let noticeCache = [];
 let postCache = [];
 let applyFieldCache = [];
 let myApplyAccess = {};
+let myClassApplications = [];
 let adminTab = "overview";
 let adminNav = "overview";
 let editClassId = null;
@@ -144,6 +145,7 @@ async function loadSiteData() {
   if (applications) applyCache = applications;
   if (siteData) popupCache = siteData.popup || null;
   myApplyAccess = {};
+  myClassApplications = myApplications || [];
   if (myApplications) {
     for (const item of myApplications) {
       if (!item.classAccess) continue;
@@ -663,12 +665,20 @@ function renderClassAttendanceApply(box, classTitle, classId = "") {
     <p class="sub" style="margin-bottom:16px"><b>${escapeHtml(classTitle)}</b> 강좌에 신청합니다.</p>
     <button class="btn btn-orange" type="button" id="class-apply-btn">신청하기</button>
   `;
-  document.getElementById("class-apply-btn")?.addEventListener("click", () => submitClassApply(classTitle, classId));
+  const button = box.querySelector("#class-apply-btn");
+  const applied = myClassApplications.some((item) => (classId && item.classId === classId) || item.type === classTitle);
+  if (applied) {
+    button.disabled = true;
+    button.classList.add("class-apply-completed");
+    button.textContent = "교육신청 완료";
+  }
+  button.addEventListener("click", () => submitClassApply(classTitle, classId, button));
 }
 
-async function submitClassApply(classTitle, classId = "") {
+async function submitClassApply(classTitle, classId = "", button) {
   const me = getSession();
-  if (!me || !classTitle) return;
+  if (!me || !classTitle || button?.disabled) return;
+  if (button) { button.disabled = true; button.textContent = "신청 중…"; }
   const body = { kind: "class", type: classTitle, classId };
   applyFieldCache.forEach((field, idx) => {
     if (field.type === "tel") body[field.id] = me.phone || "";
@@ -678,14 +688,19 @@ async function submitClassApply(classTitle, classId = "") {
   });
   try {
     await api("/api/applications", { method: "POST", body: JSON.stringify(body) });
+    myClassApplications.push({ classId, type: classTitle });
+    if (button) {
+      button.textContent = "교육신청 완료";
+      button.classList.add("class-apply-completed");
+    }
     const box = document.getElementById("class-apply-box");
-    if (box) box.style.display = "none";
     const success = document.getElementById("success");
     if (success) {
       success.innerHTML = `<p><b>「${escapeHtml(classTitle)}」 신청이 완료되었습니다.</b><br /><span style="font-weight:500">새로운 배움의 시작을 온코드랩이 함께하겠습니다.</span><br />관리자 승인 후 교육이 시작되며, 승인 완료 시 별도로 안내드립니다.</p>`;
       success.classList.add("show");
     }
   } catch (error) {
+    if (button) { button.disabled = false; button.textContent = "신청하기"; }
     window.alert(error.message);
   }
 }

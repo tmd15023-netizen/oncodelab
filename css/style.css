@@ -666,6 +666,16 @@ h3 { font-size: 22px; }
 .class-pagination button[aria-current="page"] { background: #536eb6; border-color: #536eb6; color: #fff; font-weight: 600; }
 .class-pagination button:hover:not(:disabled) { border-color: #536eb6; }
 .class-pagination button:disabled { opacity: .4; cursor: default; }
+.btn.class-apply-completed:disabled,
+.btn.class-apply-completed:disabled:hover {
+  background: #e5e7eb;
+  border-color: #d1d5db;
+  color: #4b5563;
+  opacity: 1;
+  cursor: default;
+  box-shadow: none;
+  transform: none;
+}
 .class-pagination button:focus-visible { outline: 3px solid #ec945f; outline-offset: 2px; }
 @media (max-width: 1000px) { .class-program-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; } }
 @media (max-width: 600px) {
