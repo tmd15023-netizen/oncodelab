@@ -31,6 +31,7 @@ let applyFieldCache = [];
 let myApplyAccess = {};
 let myClassApplications = [];
 let adminTab = "overview";
+let adminUsersPage = 1;
 let adminNav = "overview";
 let editClassId = null;
 let editTestId = null;
@@ -1668,6 +1669,12 @@ function initAdmin() {
   `;
 
   box.onclick = (event) => {
+    const usersPage = event.target.closest("[data-admin-users-page]");
+    if (usersPage && !usersPage.disabled) {
+      adminUsersPage = Number(usersPage.dataset.adminUsersPage);
+      initAdmin();
+      return;
+    }
     if (event.target.closest("[data-admin-logout]")) {
       api("/api/auth/logout", { method: "POST" }).catch(() => {});
       clearAuth();
@@ -2375,8 +2382,11 @@ function adminPostPanel(editing) {
 }
 
 function adminUsersPanel() {
+  const pageCount = Math.max(1, Math.ceil(userCache.length / 10));
+  adminUsersPage = Math.max(1, Math.min(adminUsersPage, pageCount));
   const rows = userCache.length
     ? userCache
+        .slice((adminUsersPage - 1) * 10, adminUsersPage * 10)
         .map((item) => {
           const admin = isAdmin(item);
           return `<tr>
@@ -2394,7 +2404,7 @@ function adminUsersPanel() {
         .join("")
     : `<tr><td class="empty-row" colspan="6">가입한 회원이 없습니다.</td></tr>`;
   return `<section class="dash-card">
-    <div class="dash-card-head"><h2>회원 관리</h2></div>
+    <div class="dash-card-head"><h2>회원 관리 <span class="sub">(${userCache.length}명)</span></h2></div>
     <div class="dash-table-wrap">
       <table class="dash-table dash-table-static">
         <thead>
@@ -2410,6 +2420,11 @@ function adminUsersPanel() {
         <tbody>${rows}</tbody>
       </table>
     </div>
+    <nav class="class-pagination" aria-label="회원 목록 페이지">
+      <button type="button" data-admin-users-page="${adminUsersPage - 1}" ${adminUsersPage === 1 ? "disabled" : ""}>이전</button>
+      ${Array.from({ length: pageCount }, (_, index) => `<button type="button" data-admin-users-page="${index + 1}" ${adminUsersPage === index + 1 ? 'aria-current="page"' : ""}>${index + 1}</button>`).join("")}
+      <button type="button" data-admin-users-page="${adminUsersPage + 1}" ${adminUsersPage === pageCount ? "disabled" : ""}>다음</button>
+    </nav>
   </section>`;
 }
 
