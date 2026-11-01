@@ -650,6 +650,8 @@ h3 { font-size: 22px; }
 .class-program-badge.is-active { background: #0055ff; }
 .class-program-badge.is-closed { background: #e60012; }
 .class-program-badge.is-ended { background: #6b21d9; }
+.class-program-badge.is-online { background: #0055cc; }
+.class-program-badge.is-offline { background: #c2410c; }
 .class-program-body { display: flex; flex-direction: column; flex: 1; padding: 22px; gap: 16px; }
 .class-program-category { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 0; color: #4967ad; font-size: 14px; font-weight: 600; }
 .class-program-category span { color: #758396; font-weight: 400; }
@@ -1597,6 +1599,8 @@ h3 { font-size: 22px; }
 .home-page .home-preview-status.is-active { background: #0055ff; }
 .home-page .home-preview-status.is-closed { background: #e60012; }
 .home-page .home-preview-status.is-ended { background: #6b21d9; }
+.home-page .home-preview-status.is-online { background: #0055cc; }
+.home-page .home-preview-status.is-offline { background: #c2410c; }
 .home-page .home-preview-art { display: flex; align-items: end; height: 130px; padding: 17px; background: linear-gradient(135deg, #224a7a, #74a9df); color: #fff; font-size: 22px; font-weight: 800; }
 .home-page .home-preview-card:nth-child(2) .home-preview-art { background: linear-gradient(135deg, #247b7b, #7bc2b6); }
 .home-page .home-preview-card:nth-child(3) .home-preview-art { background: linear-gradient(135deg, #aa633c, #e9aa75); }

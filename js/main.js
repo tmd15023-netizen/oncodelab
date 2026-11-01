@@ -424,7 +424,7 @@ function renderClassPage() {
     .slice((classListPage - 1) * CLASS_PAGE_SIZE, classListPage * CLASS_PAGE_SIZE)
     .map((item) => {
       const detailUrl = `class-detail?id=${encodeURIComponent(item.id)}`;
-      const badges = classRecruitmentBadges(item.status);
+      const badges = classDisplayBadges(item.status);
       const modes = classStatusTokens(item.status).filter((part) => part === "온라인" || part === "오프라인").join(" · ");
       const access = myApplyAccess[item.id] || myApplyAccess[item.title];
       let actionHtml;
@@ -567,6 +567,15 @@ function classRecruitmentBadges(status) {
   ].filter(Boolean);
 }
 
+function classDisplayBadges(status) {
+  const parts = classStatusTokens(status);
+  return [
+    ...classRecruitmentBadges(status),
+    ...(parts.includes("온라인") ? [{ label: "온라인", tone: "online" }] : []),
+    ...(parts.includes("오프라인") ? [{ label: "오프라인", tone: "offline" }] : []),
+  ];
+}
+
 function renderHomePreviews() {
   const classes = document.getElementById("home-class-preview");
   const tests = document.getElementById("home-test-preview");
@@ -574,7 +583,7 @@ function renderHomePreviews() {
   if (!classes || !tests || !notices) return;
   classes.innerHTML = classCache.length
     ? classCache.slice(0, 4).map((item) => {
-      const badges = classRecruitmentBadges(item.status);
+      const badges = classDisplayBadges(item.status);
       return `<a class="home-preview-card" href="class-detail?id=${encodeURIComponent(item.id)}">
         ${badges.length ? `<span class="home-preview-badges">${badges.map((badge) => `<span class="home-preview-status is-${badge.tone}">${badge.label}</span>`).join("")}</span>` : ""}
         ${item.posterUrl
