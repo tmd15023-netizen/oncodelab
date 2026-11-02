@@ -1,4 +1,7 @@
-const API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "http://127.0.0.1:3000" : "";
+// Cross-origin redirects strip Authorization. Call the canonical API directly
+// even when a browser still has an older page open on the apex domain.
+const API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "http://127.0.0.1:3000"
+  : location.hostname === "oncodelab.co.kr" ? "https://www.oncodelab.co.kr" : "";
 
 (function showPageLoading() {
   const overlay = document.createElement("div");
@@ -32,6 +35,8 @@ let myApplyAccess = {};
 let myClassApplications = [];
 let adminTab = "overview";
 let adminUsersPage = 1;
+let adminDataState = "loading";
+let adminDataError = "";
 let adminNav = "overview";
 let editClassId = null;
 let editTestId = null;
@@ -106,7 +111,7 @@ async function api(path, options = {}) {
   if (token()) headers.Authorization = `Bearer ${token()}`;
   let res;
   try {
-    res = await fetch(API + path, { ...options, headers });
+    res = await fetch(API + path, { cache: "no-store", ...options, headers });
   } catch {
     throw new Error("서버에 연결할 수 없습니다. API 서버를 먼저 실행해 주세요.");
   }
@@ -144,6 +149,26 @@ async function loadSiteData() {
   if (applyFields) applyFieldCache = applyFields;
   if (users) userCache = users;
   if (applications) applyCache = applications;
+  if (isAdmin()) {
+    try {
+      // Protected endpoints reject expired sessions instead of returning the
+      // public bootstrap's null lists, which must never mean zero members.
+      const [members, entries] = await Promise.all([
+        api("/api/admin/users"), api("/api/admin/applications"),
+      ]);
+      userCache = members;
+      applyCache = entries;
+      adminDataState = "ready";
+      adminDataError = "";
+    } catch (error) {
+      adminDataState = "error";
+      adminDataError = error.message;
+    }
+  } else {
+    adminDataState = "loading";
+    userCache = [];
+    applyCache = [];
+  }
   if (siteData) popupCache = siteData.popup || null;
   myApplyAccess = {};
   myClassApplications = myApplications || [];
@@ -1617,6 +1642,20 @@ function initAdmin() {
     return;
   }
 
+  if (adminDataState !== "ready") {
+    box.className = "admin-gate";
+    box.innerHTML = adminDataState === "loading"
+      ? noticeCard("관리자 데이터를 불러오는 중입니다", "회원과 신청 내역을 확인하고 있습니다.", "")
+      : noticeCard("관리자 데이터를 불러오지 못했습니다", escapeHtml(adminDataError), '<p><button class="btn btn-line" type="button" data-admin-retry>다시 불러오기</button> <button class="btn btn-line" type="button" data-admin-login>다시 로그인</button></p>');
+    box.querySelector("[data-admin-retry]")?.addEventListener("click", async () => {
+      adminDataState = "loading";
+      initAdmin();
+      await loadSiteData();
+      initAdmin();
+    });
+    box.querySelector("[data-admin-login]")?.addEventListener("click", () => openAuth("login"));
+    return;
+  }
   const me = getSession();
   const editingClass = classCache.find((item) => item.id === editClassId);
   const editingTest = testCache.find((item) => item.id === editTestId);
@@ -2803,7 +2842,8 @@ function setupLivePolling() {
         if (!isAdmin() || adminTab !== "overview" || isTypingInside(adminBox)) return;
         classCache = data.classes; testCache = data.tests; noticeCache = data.notices;
         postCache = data.posts; applyFieldCache = data.applyFields;
-        userCache = data.users || []; applyCache = data.applications || [];
+        if (!Array.isArray(data.users) || !Array.isArray(data.applications)) throw new Error("관리자 인증을 확인할 수 없습니다. 다시 로그인해 주세요.");
+        userCache = data.users; applyCache = data.applications;
         popupCache = data.popup || null;
         initAdmin();
       } catch (error) { console.warn(error.message); }
