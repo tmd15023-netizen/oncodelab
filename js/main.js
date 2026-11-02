@@ -35,6 +35,8 @@ let myApplyAccess = {};
 let myClassApplications = [];
 let adminTab = "overview";
 let adminUsersPage = 1;
+let adminUsersSearch = "";
+let adminUsersSort = "newest";
 let adminDataState = "loading";
 let adminDataError = "";
 let adminNav = "overview";
@@ -1716,7 +1718,24 @@ function initAdmin() {
     </main>
   `;
 
+  box.querySelector("[data-member-search-form]")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    adminUsersSearch = new FormData(event.currentTarget).get("memberName").trim();
+    adminUsersPage = 1;
+    initAdmin();
+  });
+  box.querySelector("[data-member-sort]")?.addEventListener("change", (event) => {
+    adminUsersSort = event.target.value;
+    adminUsersPage = 1;
+    initAdmin();
+  });
   box.onclick = (event) => {
+    if (event.target.closest("[data-member-reset]")) {
+      adminUsersSearch = "";
+      adminUsersPage = 1;
+      initAdmin();
+      return;
+    }
     const usersPage = event.target.closest("[data-admin-users-page]");
     if (usersPage && !usersPage.disabled) {
       adminUsersPage = Number(usersPage.dataset.adminUsersPage);
@@ -2429,11 +2448,25 @@ function adminPostPanel(editing) {
     </div>`;
 }
 
+function sortedAdminMembers(members, search, order) {
+  const normalize = (value) => String(value || "").normalize("NFC").replace(/\s/g, "").toLocaleLowerCase("ko");
+  const query = normalize(search);
+  return members.filter((item) => normalize(item.name).includes(query)).sort((a, b) => {
+    const byName = String(a.name || "").localeCompare(String(b.name || ""), "ko", { numeric: true });
+    if (order === "name") return byName;
+    const aTime = Date.parse(a.createdAt), bTime = Date.parse(b.createdAt);
+    if (!Number.isFinite(aTime)) return Number.isFinite(bTime) ? 1 : byName;
+    if (!Number.isFinite(bTime)) return -1;
+    return (order === "oldest" ? aTime - bTime : bTime - aTime) || byName;
+  });
+}
+
 function adminUsersPanel() {
-  const pageCount = Math.max(1, Math.ceil(userCache.length / 10));
+  const members = sortedAdminMembers(userCache, adminUsersSearch, adminUsersSort);
+  const pageCount = Math.max(1, Math.ceil(members.length / 10));
   adminUsersPage = Math.max(1, Math.min(adminUsersPage, pageCount));
-  const rows = userCache.length
-    ? userCache
+  const rows = members.length
+    ? members
         .slice((adminUsersPage - 1) * 10, adminUsersPage * 10)
         .map((item) => {
           const admin = isAdmin(item);
@@ -2450,9 +2483,18 @@ function adminUsersPanel() {
           </tr>`;
         })
         .join("")
-    : `<tr><td class="empty-row" colspan="6">가입한 회원이 없습니다.</td></tr>`;
+    : `<tr><td class="empty-row" colspan="6">${adminUsersSearch ? "검색된 회원이 없습니다." : "가입한 회원이 없습니다."}</td></tr>`;
   return `<section class="dash-card">
     <div class="dash-card-head"><h2>회원 관리 <span class="sub">(${userCache.length}명)</span></h2></div>
+    <form class="member-list-controls" data-member-search-form role="search" aria-label="회원 이름 검색">
+      <label>회원 이름 <input type="search" name="memberName" value="${escapeHtml(adminUsersSearch)}" placeholder="이름을 입력하세요" /></label>
+      <button class="btn btn-line" type="submit">검색</button>
+      ${adminUsersSearch ? '<button class="btn btn-line" type="button" data-member-reset>전체 보기</button>' : ""}
+      <label>정렬 <select data-member-sort>
+        ${[["newest", "최신순 (가입일)"], ["oldest", "과거순 (가입일)"], ["name", "오름차순 (이름 가나다순)"]].map(([value, label]) => `<option value="${value}" ${adminUsersSort === value ? "selected" : ""}>${label}</option>`).join("")}
+      </select></label>
+    </form>
+    ${adminUsersSearch ? `<p class="sub" role="status">검색 결과 ${members.length}명</p>` : ""}
     <div class="dash-table-wrap">
       <table class="dash-table dash-table-static">
         <thead>

@@ -664,6 +664,10 @@ h3 { font-size: 22px; }
 .class-list-empty { grid-column: 1 / -1; text-align: center; padding: 48px 20px; color: #718096; }
 .class-pagination { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 36px; }
 .class-pagination[hidden] { display: none; }
+.member-list-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin: 0 0 20px; }
+.member-list-controls label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--navy); max-width: 100%; }
+.member-list-controls input, .member-list-controls select { min-height: 44px; max-width: 100%; padding: 9px 12px; border: 1px solid #c7d8e8; border-radius: 8px; background: #fff; color: var(--navy); font: inherit; }
+.member-list-controls .btn { min-height: 44px; }
 .class-pagination button { min-width: 40px; height: 40px; padding: 0 12px; border: 1px solid #dce3ef; border-radius: 8px; background: #fff; color: #496089; font: inherit; cursor: pointer; }
 .class-pagination button[aria-current="page"] { background: #536eb6; border-color: #536eb6; color: #fff; font-weight: 600; }
 .class-pagination button:hover:not(:disabled) { border-color: #536eb6; }
