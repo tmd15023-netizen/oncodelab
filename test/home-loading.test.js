@@ -129,12 +129,14 @@ test("homepage uses compressed heroes, subset font, and no live list polling", (
   const js = fs.readFileSync(new URL("../js/main.js", import.meta.url), "utf8");
   assert.match(html, /pretendard-dynamic-subset/);
   assert.match(html, /__oncodelabHomeRequest/);
-  assert.match(html, /hero1\.webp/);
+  assert.match(html, /hero-carousel-track[\s\S]*hero1\.webp/);
+  assert.match(html, /fetchpriority="high"/);
   assert.match(js, /hero\$\{n\}\.webp/);
   assert.match(js, /isNarrowViewport\(\)/);
   assert.match(js, /HOME_REVIEW_PAGE_SIZE_MOBILE/);
   assert.match(js, /is-fallback-open/);
-  assert.match(js, /finally \{[\s\S]*showHomePopup\(\)/);
+  assert.match(js, /if \(document.getElementById\("hero-carousel-track"\)\) initHeroCarousel\(\)/);
+  assert.match(js, /finally \{[\s\S]*scheduleHomePopup\(\)/);
   assert.equal(js.includes("showPageLoading"), false);
   assert.match(js, /cache: fetchCacheMode/);
   assert.match(js, /writeHomeCache/);

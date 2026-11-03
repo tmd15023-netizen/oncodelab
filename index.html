@@ -25,9 +25,10 @@
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="preload" as="image" href="images/hero1.webp?v=20261103-webp" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" />
-  <link rel="stylesheet" href="css/style.css?v=20261103-popup-link" />
+  <link rel="preload" as="image" href="images/hero1.webp?v=20261103-webp" fetchpriority="high" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" /></noscript>
+  <link rel="stylesheet" href="css/style.css?v=20261103-hero-first" />
   <script>
     (function () {
       var host = location.hostname === "oncodelab.co.kr" ? "https://www.oncodelab.co.kr" : "";
@@ -50,7 +51,6 @@
           link.rel = "preload";
           link.as = "image";
           link.href = /^https?:/i.test(url) ? url : host + url;
-          if (link.fetchPriority !== undefined) link.fetchPriority = "high";
           document.head.appendChild(link);
         });
       } catch (e) {}
@@ -95,19 +95,23 @@
   <main class="home-main">
   <section class="hero-carousel-section">
     <div class="hero-carousel" id="hero-carousel">
-      <div class="hero-carousel-track" id="hero-carousel-track"></div>
+      <div class="hero-carousel-track" id="hero-carousel-track">
+        <div class="hero-slide is-center" data-index="0">
+          <img src="images/hero1.webp?v=20261103-webp" alt="온코드랩 수업 사례 1" width="720" height="405" fetchpriority="high" decoding="async" />
+        </div>
+      </div>
     </div>
     <div class="hero-carousel-dots" id="hero-carousel-dots"></div>
   </section>
 
   <section class="home-panel home-list-section" aria-labelledby="home-class-heading">
     <div class="home-section-heading"><div><p class="kicker">ONCODELAB CLASS</p><h2 id="home-class-heading">진행 중인 Class</h2></div><a href="class">전체 보기 →</a></div>
-    <div id="home-class-preview" class="home-preview-grid"></div>
+    <div id="home-class-preview" class="home-preview-grid"><p class="page-loading-status" role="status"><span class="page-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>불러오는 중입니다…</p></div>
   </section>
 
   <section class="home-panel home-list-section" aria-labelledby="home-test-heading">
     <div class="home-section-heading"><div><p class="kicker">ONCODELAB TEST</p><h2 id="home-test-heading">TEST</h2></div><a href="diagnosis">전체 보기 →</a></div>
-    <div id="home-test-preview" class="home-preview-grid home-test-grid"></div>
+    <div id="home-test-preview" class="home-preview-grid home-test-grid"><p class="page-loading-status" role="status"><span class="page-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>불러오는 중입니다…</p></div>
   </section>
 
   <section class="section home-panel home-reviews-section">
@@ -117,7 +121,7 @@
         <a href="community?tab=review">전체 보기 →</a>
       </div>
       <p class="sub">강사진이 직접 전하는 수업 노하우와 교육 콘텐츠,<br>그리고 학생들이 남긴 생생한 후기까지 한눈에 만나보세요.</p>
-      <div id="home-reviews"></div>
+      <div id="home-reviews"><p class="page-loading-status" role="status"><span class="page-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>불러오는 중입니다…</p></div>
     </div>
   </section>
 
@@ -158,7 +162,7 @@
   <div class="home-board-grid">
     <section class="home-panel home-list-section" aria-labelledby="home-notice-heading">
       <div class="home-section-heading"><div><p class="kicker">NEWS</p><h2 id="home-notice-heading">공지사항</h2></div><a href="notice">전체 보기 →</a></div>
-      <div id="home-notice-preview" class="home-board-list"></div>
+      <div id="home-notice-preview" class="home-board-list"><p class="page-loading-status" role="status"><span class="page-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>불러오는 중입니다…</p></div>
     </section>
     <section class="home-panel home-list-section" aria-labelledby="home-inquiry-heading">
       <div class="home-section-heading"><div><p class="kicker">INQUIRY &amp; APPLY</p><h2 id="home-inquiry-heading">교육신청 / 문의</h2></div></div>
@@ -204,6 +208,6 @@
     </div>
     <div class="copy">© 2026 Oncodelab. All rights reserved.</div>
   </footer>
-  <script src="js/main.js?v=20261103-popup-link"></script>
+  <script src="js/main.js?v=20261103-hero-first"></script>
 </body>
 </html>

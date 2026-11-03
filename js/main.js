@@ -200,14 +200,18 @@ function preloadHomeMedia(data) {
     link.as = "image";
     link.href = href;
     link.setAttribute("data-home-preload", href);
-    if (link.fetchPriority !== undefined) link.fetchPriority = "high";
     document.head.append(link);
   }
 }
 
 function paintHomeAboveFold() {
   renderHomePreviews();
-  showHomePopup();
+  scheduleHomePopup();
+}
+
+function scheduleHomePopup() {
+  if (homePopupShown || scheduleHomePopup.timer) return;
+  scheduleHomePopup.timer = setTimeout(() => showHomePopup(), 800);
 }
 
 function hydrateHomeCache() {
@@ -615,7 +619,7 @@ function restartHeroCarouselAutoplay() {
 function initHeroCarousel() {
   const track = document.getElementById("hero-carousel-track");
   const dots = document.getElementById("hero-carousel-dots");
-  if (!track || !dots) return;
+  if (!track || !dots || track.dataset.ready === "1") return;
   track.innerHTML = isNarrowViewport()
     ? `<div class="hero-slide is-center" data-index="0"><img src="${heroImageSrc(0)}" alt="온코드랩 수업 사례 1" width="720" height="405" fetchpriority="high" decoding="async" /></div>`
     : Array.from(
@@ -635,6 +639,7 @@ function initHeroCarousel() {
   });
   dots.querySelector("[data-hero-prev]").addEventListener("click", () => goToHeroSlide(heroCarouselIndex - 1));
   dots.querySelector("[data-hero-next]").addEventListener("click", () => goToHeroSlide(heroCarouselIndex + 1));
+  track.dataset.ready = "1";
   updateHeroCarousel();
   restartHeroCarouselAutoplay();
 }
@@ -837,13 +842,20 @@ function renderHomePreviews() {
   const tests = document.getElementById("home-test-preview");
   const notices = document.getElementById("home-notice-preview");
   if (!classes || !tests || !notices) return;
+  if (publicClassDataState !== "ready") {
+    const loading = pageLoadingStatus("불러오는 중입니다…");
+    if (!classes.querySelector(".page-loading-status")) classes.innerHTML = loading;
+    if (!tests.querySelector(".page-loading-status")) tests.innerHTML = loading;
+    if (!notices.querySelector(".page-loading-status")) notices.innerHTML = loading;
+    return;
+  }
   classes.innerHTML = classCache.length
     ? classCache.slice(0, 4).map((item) => {
       const badges = classDisplayBadges(item.status);
       return `<a class="home-preview-card" href="class-detail?id=${encodeURIComponent(item.id)}">
         ${badges.length ? `<span class="home-preview-badges">${badges.map((badge) => `<span class="home-preview-status is-${badge.tone}">${badge.label}</span>`).join("")}</span>` : ""}
         ${item.posterUrl
-          ? `<span class="home-preview-art home-preview-art-image"><img src="${escapeHtml(assetUrl(item.posterUrl))}" alt="${escapeHtml(item.title)} 포스터" loading="eager" fetchpriority="high" decoding="async" /></span>`
+          ? `<span class="home-preview-art home-preview-art-image"><img src="${escapeHtml(assetUrl(item.posterUrl))}" alt="${escapeHtml(item.title)} 포스터" loading="lazy" decoding="async" /></span>`
           : `<span class="home-preview-art ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</span>`}
         <span class="home-preview-copy"><small>${escapeHtml(item.status || "온라인 · 진행중")}</small><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.summary || "")}</span></span>
       </a>`;
@@ -2271,7 +2283,7 @@ function showHomePopup() {
   dialog.setAttribute("aria-label", popupCache.title);
   const posterHtml = posters.map((poster, index) => {
     const href = popupHref(poster.linkUrl);
-    const image = `<img src="${escapeHtml(assetUrl(poster.imageUrl))}" alt="${escapeHtml(popupCache.title)} · ${index + 1}번 포스터" fetchpriority="high" decoding="async" />`;
+    const image = `<img src="${escapeHtml(assetUrl(poster.imageUrl))}" alt="${escapeHtml(popupCache.title)} · ${index + 1}번 포스터" decoding="async" />`;
     return `<div class="home-popup-image"><a href="${escapeHtml(href)}">${image}</a></div>`;
   }).join("");
   dialog.innerHTML = `<div class="home-popup-top"><strong>${escapeHtml(popupCache.title)}</strong><button type="button" data-popup-close aria-label="팝업 닫기">×</button></div>
@@ -3235,6 +3247,7 @@ function setupLivePolling() {
 const homePageEl = typeof document !== "undefined" ? document.getElementById("home-class-preview") : null;
 const classListEl = typeof document !== "undefined" ? document.getElementById("class-list") : null;
 const classDetailEl = typeof document !== "undefined" ? document.getElementById("class-detail") : null;
+if (document.getElementById("hero-carousel-track")) initHeroCarousel();
 if (homePageEl && hydrateHomeCache()) paintHomeAboveFold();
 if ((classListEl || classDetailEl) && hydrateHomeCache()) {
   renderClassPage();
@@ -3265,8 +3278,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     initAdmin();
     for (const id of ["home-class-preview", "home-test-preview", "home-notice-preview", "home-reviews"]) {
       const box = document.getElementById(id);
-      if (box && !box.querySelector("a, .card, .home-preview-card, .home-board-row")) {
-        box.innerHTML = '<p class="sub" role="status">불러오는 중입니다…</p>';
+      if (box && !box.querySelector("a, .card, .home-preview-card, .home-board-row, .page-loading-status")) {
+        box.innerHTML = pageLoadingStatus("불러오는 중입니다…");
       }
     }
     const later = typeof requestIdleCallback === "function" ? requestIdleCallback : (fn) => setTimeout(fn, 400);
@@ -3276,10 +3289,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderHomeReviews();
       });
     });
-    if (classCache.length) initHeroCarousel();
+    initHeroCarousel();
     if (publicDataBoot) await publicDataBoot;
     else await loadSiteData();
-    if (!document.querySelector("#hero-carousel-track .hero-slide")) initHeroCarousel();
     renderClassPage();
     if (!homePageEl) renderHomePreviews();
     renderClassDetailPage();
@@ -3295,6 +3307,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   } catch (error) {
     console.warn(error.message);
   } finally {
-    showHomePopup();
+    scheduleHomePopup();
   }
 });
