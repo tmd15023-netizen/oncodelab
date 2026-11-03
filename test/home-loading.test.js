@@ -90,6 +90,29 @@ test("homepage loads independently of personal application requests", async () =
   assert.equal(vm.runInContext("classCache[0].id", context), "class");
 });
 
+test("logged-in class pages load the visitor's applications so completed buttons can gray out", async () => {
+  const source = fs.readFileSync(new URL("../js/main.js", import.meta.url), "utf8");
+  const requests = [];
+  const context = vm.createContext({
+    document: { getElementById: (id) => (id === "class-detail" ? {} : null) },
+    console,
+    getSession: () => ({ email: "member@example.com" }),
+    api: async (path) => {
+      requests.push(path);
+      if (path === "/api/my-applications") return [{ classId: "class-one", type: "생성AI 활용 전자책 제작" }];
+      return { classes: [{ id: "class-one" }], tests: [], notices: [], popup: null };
+    },
+  });
+  vm.runInContext(
+    `let classCache, testCache, noticeCache, popupCache, myApplyAccess, myClassApplications;\n` +
+      source.slice(source.indexOf("function applyHomeData"), source.indexOf("// Intentionally in-memory")),
+    context,
+  );
+  await vm.runInContext("loadSiteData()", context);
+  assert.deepEqual(requests, ["/api/site-data?view=home", "/api/my-applications"]);
+  assert.equal(vm.runInContext("hasAppliedForClass('생성AI 활용 전자책 제작', 'class-one')", context), true);
+});
+
 test("homepage uses compressed heroes, subset font, and no live list polling", () => {
   const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const js = fs.readFileSync(new URL("../js/main.js", import.meta.url), "utf8");

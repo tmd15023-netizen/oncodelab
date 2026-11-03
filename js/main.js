@@ -127,6 +127,35 @@ function applyHomeData(data) {
   popupCache = data.popup || null;
 }
 
+function applyMyApplications(myApplications) {
+  myApplyAccess = {};
+  myClassApplications = myApplications || [];
+  for (const item of myClassApplications) {
+    if (!item.classAccess) continue;
+    if (item.classId) myApplyAccess[item.classId] = item.classAccess;
+    myApplyAccess[item.type] = item.classAccess;
+  }
+}
+
+async function loadMyClassApplications() {
+  if (typeof getSession !== "function" || !getSession()) {
+    applyMyApplications([]);
+    return [];
+  }
+  const myApplications = await api("/api/my-applications");
+  applyMyApplications(myApplications);
+  return myApplications;
+}
+
+function hasAppliedForClass(classTitle, classId = "") {
+  return myClassApplications.some((item) => {
+    if (classId && item.classId === classId) return true;
+    if (item.type === classTitle) return true;
+    const normalize = (value) => String(value || "").replace(/^\s*\(\s*\d+\s*기\s*\)\s*/, "").replace(/\s+/g, " ").trim();
+    return normalize(item.type) === normalize(classTitle);
+  });
+}
+
 function readHomeCache() {
   return readJson(localStorage, "oncodelab-home-data", null) || readJson(sessionStorage, "oncodelab-home-data", null);
 }
@@ -228,6 +257,7 @@ async function loadSiteData() {
       applyHomeData(data);
       writeHomeCache(data);
       preloadHomeMedia(data);
+      await loadMyClassApplications();
     } catch (error) {
       console.warn(error.message);
       if (!classCache.length) {
@@ -317,15 +347,7 @@ async function loadSiteData() {
   if (posts) postCache = posts;
   if (applyFields) applyFieldCache = applyFields;
   if (siteData) popupCache = siteData.popup || null;
-  myApplyAccess = {};
-  myClassApplications = myApplications || [];
-  if (myApplications) {
-    for (const item of myApplications) {
-      if (!item.classAccess) continue;
-      if (item.classId) myApplyAccess[item.classId] = item.classAccess;
-      myApplyAccess[item.type] = item.classAccess;
-    }
-  }
+  applyMyApplications(myApplications);
 }
 
 // Intentionally in-memory (not sessionStorage): a TEST should require its
@@ -633,6 +655,8 @@ function renderClassPage() {
       if (access) {
         const accessUrl = access.linkUrl || (access.fileUrl ? API + access.fileUrl : detailUrl);
         actionHtml = `<a class="class-program-action" href="${escapeHtml(accessUrl)}" target="_blank" rel="noopener">수강하기 <span aria-hidden="true">→</span></a>`;
+      } else if (hasAppliedForClass(item.title, item.id)) {
+        actionHtml = `<a class="class-program-action is-applied" href="${detailUrl}">교육신청 완료</a>`;
       } else {
         actionHtml = `<a class="class-program-action" href="${detailUrl}">신청하기 <span aria-hidden="true">→</span></a>`;
       }
@@ -878,7 +902,7 @@ function renderClassAttendanceApply(box, classTitle, classId = "") {
     <button class="btn btn-orange" type="button" id="class-apply-btn">신청하기</button>
   `;
   const button = box.querySelector("#class-apply-btn");
-  const applied = myClassApplications.some((item) => (classId && item.classId === classId) || item.type === classTitle);
+  const applied = hasAppliedForClass(classTitle, classId);
   if (applied) {
     button.disabled = true;
     button.classList.add("class-apply-completed");
@@ -1062,6 +1086,7 @@ async function refreshAccountViews() {
   initAdmin();
   initTests();
   renderClassPage();
+  renderClassDetailPage();
   fillInquiryOptions();
   renderApplyFields();
   initClassSelection();
