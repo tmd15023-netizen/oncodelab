@@ -8,7 +8,16 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" />
-  <link rel="stylesheet" href="css/style.css?v=20261103-applied" />
+  <link rel="stylesheet" href="css/style.css?v=20261103-class-loading" />
+  <script>
+    (function () {
+      var host = location.hostname === "oncodelab.co.kr" ? "https://www.oncodelab.co.kr" : "";
+      window.__oncodelabHomeRequest = fetch(host + "/api/site-data?view=home").then(function (res) {
+        if (!res.ok) throw new Error("home");
+        return res.json();
+      });
+    })();
+  </script>
 </head>
 <body class="class-detail-page">
   <div class="topbar"><div class="wrap"><span class="topbar-brand">온코드랩</span><span>상담 평일 09:00–18:00</span></div></div>
@@ -26,7 +35,7 @@
       <div class="header-actions"><a class="btn btn-orange" href="contact">교육신청 / 문의</a><button class="menu-btn" type="button" onclick="toggleMenu()">메뉴</button></div>
     </div>
   </header>
-  <main id="class-detail" class="class-detail-wrap"></main>
+  <main id="class-detail" class="class-detail-wrap"><p class="page-loading-status" role="status"><span class="page-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>교육을 불러오는 중입니다…</p></main>
   <footer class="footer">
     <div class="wrap footer-grid">
       <div><b>Oncodelab</b><p>교실 밖으로 펼쳐지는 코딩 연구<br>스스로 생각하고 만드는 AI · 코딩 교육 랩</p></div>
@@ -35,6 +44,6 @@
     </div>
     <div class="copy">© 2026 Oncodelab. All rights reserved.</div>
   </footer>
-  <script src="js/main.js?v=20261103-applied"></script>
+  <script src="js/main.js?v=20261103-class-loading"></script>
 </body>
 </html>

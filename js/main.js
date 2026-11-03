@@ -16,6 +16,8 @@ let postCache = [];
 let applyFieldCache = [];
 let myApplyAccess = {};
 let myClassApplications = [];
+let publicClassDataState = "loading";
+let myApplicationsState = "idle";
 let adminTab = "overview";
 let adminUsersPage = 1;
 let adminUsersSearch = "";
@@ -140,11 +142,24 @@ function applyMyApplications(myApplications) {
 async function loadMyClassApplications() {
   if (typeof getSession !== "function" || !getSession()) {
     applyMyApplications([]);
+    myApplicationsState = "ready";
     return [];
   }
+  myApplicationsState = "loading";
   const myApplications = await api("/api/my-applications");
   applyMyApplications(myApplications);
+  myApplicationsState = "ready";
   return myApplications;
+}
+
+function pageLoadingStatus(text) {
+  return `<p class="page-loading-status" role="status"><span class="page-loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>${escapeHtml(text)}</p>`;
+}
+
+function paintPublicClassSurfaces() {
+  if (typeof renderClassPage === "function") renderClassPage();
+  if (typeof renderClassDetailPage === "function") renderClassDetailPage();
+  if (typeof renderHomePreviews === "function" && typeof document !== "undefined" && document.getElementById("home-class-preview")) renderHomePreviews();
 }
 
 function hasAppliedForClass(classTitle, classId = "") {
@@ -196,10 +211,12 @@ function paintHomeAboveFold() {
 }
 
 function hydrateHomeCache() {
-  if (typeof document === "undefined" || !document.getElementById("home-class-preview")) return false;
+  if (typeof document === "undefined") return false;
+  if (!document.getElementById("home-class-preview") && !document.getElementById("class-list") && !document.getElementById("class-detail")) return false;
   const cached = readHomeCache();
   if (!cached?.data?.classes) return false;
   applyHomeData(cached.data);
+  publicClassDataState = "ready";
   preloadHomeMedia(cached.data);
   return true;
 }
@@ -255,11 +272,16 @@ async function loadSiteData() {
     try {
       const data = await loadHomeSiteData();
       applyHomeData(data);
+      publicClassDataState = "ready";
       writeHomeCache(data);
       preloadHomeMedia(data);
-      await loadMyClassApplications();
+      paintPublicClassSurfaces();
+      try { await loadMyClassApplications(); } catch (error) { console.warn(error.message); }
+      paintPublicClassSurfaces();
     } catch (error) {
       console.warn(error.message);
+      publicClassDataState = classCache.length ? "ready" : "error";
+      paintPublicClassSurfaces();
       if (!classCache.length) {
         for (const id of ["home-class-preview", "home-test-preview", "home-notice-preview"]) {
           const box = document.getElementById(id);
@@ -621,7 +643,7 @@ function renderClassPage() {
   const box = document.getElementById("class-list");
   if (!box) return;
   const count = document.getElementById("class-total-count");
-  if (count) count.textContent = classCache.length;
+  if (count) count.textContent = classCache.length || (publicClassDataState === "ready" ? 0 : "…");
   const pageCount = Math.ceil(classCache.length / CLASS_PAGE_SIZE);
   classListPage = Math.max(1, Math.min(classListPage, pageCount || 1));
   const pagination = document.getElementById("class-pagination");
@@ -641,7 +663,11 @@ function renderClassPage() {
     };
   }
   if (!classCache.length) {
-    box.innerHTML = `<p class="class-list-empty">등록된 교육이 없습니다.</p>`;
+    box.innerHTML = publicClassDataState === "ready"
+      ? `<p class="class-list-empty">등록된 교육이 없습니다.</p>`
+      : publicClassDataState === "error"
+        ? `<p class="class-list-empty">교육을 불러오지 못했습니다. 새로고침해 주세요.</p>`
+        : pageLoadingStatus("교육 프로그램을 불러오는 중입니다…");
     return;
   }
   box.innerHTML = classCache
@@ -683,7 +709,11 @@ function renderClassDetailPage() {
   const id = new URLSearchParams(location.search).get("id") || "";
   const item = classCache.find((entry) => entry.id === id);
   if (!item) {
-    box.innerHTML = `<div class="class-detail-empty"><h1>교육을 찾을 수 없습니다.</h1><p>종료되었거나 삭제된 교육입니다.</p><a class="btn btn-line" href="class">Class 목록으로</a></div>`;
+    box.innerHTML = publicClassDataState === "ready"
+      ? `<div class="class-detail-empty"><h1>교육을 찾을 수 없습니다.</h1><p>종료되었거나 삭제된 교육입니다.</p><a class="btn btn-line" href="class">Class 목록으로</a></div>`
+      : publicClassDataState === "error"
+        ? `<div class="class-detail-empty"><h1>교육을 불러오지 못했습니다.</h1><p>네트워크 상태를 확인한 뒤 다시 시도해 주세요.</p><a class="btn btn-line" href="class">Class 목록으로</a></div>`
+        : pageLoadingStatus("교육을 불러오는 중입니다…");
     return;
   }
 
@@ -907,6 +937,9 @@ function renderClassAttendanceApply(box, classTitle, classId = "") {
     button.disabled = true;
     button.classList.add("class-apply-completed");
     button.textContent = "교육신청 완료";
+  } else if (myApplicationsState === "loading") {
+    button.disabled = true;
+    button.textContent = "확인 중…";
   }
   button.addEventListener("click", () => submitClassApply(classTitle, classId, button));
 }
@@ -3200,9 +3233,22 @@ function setupLivePolling() {
 }
 
 const homePageEl = typeof document !== "undefined" ? document.getElementById("home-class-preview") : null;
+const classListEl = typeof document !== "undefined" ? document.getElementById("class-list") : null;
+const classDetailEl = typeof document !== "undefined" ? document.getElementById("class-detail") : null;
 if (homePageEl && hydrateHomeCache()) paintHomeAboveFold();
-const homeDataBoot = homePageEl
-  ? loadSiteData().then(() => paintHomeAboveFold())
+if ((classListEl || classDetailEl) && hydrateHomeCache()) {
+  renderClassPage();
+  renderClassDetailPage();
+} else if (classListEl || classDetailEl) {
+  renderClassPage();
+  renderClassDetailPage();
+}
+const publicDataBoot = isPublicClassPage()
+  ? loadSiteData().then(() => {
+      if (homePageEl) paintHomeAboveFold();
+      renderClassPage();
+      renderClassDetailPage();
+    })
   : null;
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -3231,7 +3277,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     });
     if (classCache.length) initHeroCarousel();
-    if (homeDataBoot) await homeDataBoot;
+    if (publicDataBoot) await publicDataBoot;
     else await loadSiteData();
     if (!document.querySelector("#hero-carousel-track .hero-slide")) initHeroCarousel();
     renderClassPage();

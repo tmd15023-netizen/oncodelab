@@ -90,6 +90,17 @@ test("homepage loads independently of personal application requests", async () =
   assert.equal(vm.runInContext("classCache[0].id", context), "class");
 });
 
+test("class pages show a loading status before education data arrives", () => {
+  const list = fs.readFileSync(new URL("../class.html", import.meta.url), "utf8");
+  const detail = fs.readFileSync(new URL("../class-detail.html", import.meta.url), "utf8");
+  const js = fs.readFileSync(new URL("../js/main.js", import.meta.url), "utf8");
+  assert.match(list, /교육 프로그램을 불러오는 중입니다…/);
+  assert.match(detail, /교육을 불러오는 중입니다…/);
+  assert.match(list, /__oncodelabHomeRequest/);
+  assert.match(detail, /__oncodelabHomeRequest/);
+  assert.match(js, /publicClassDataState/);
+});
+
 test("logged-in class pages load the visitor's applications so completed buttons can gray out", async () => {
   const source = fs.readFileSync(new URL("../js/main.js", import.meta.url), "utf8");
   const requests = [];
@@ -127,7 +138,8 @@ test("homepage uses compressed heroes, subset font, and no live list polling", (
   assert.equal(js.includes("showPageLoading"), false);
   assert.match(js, /cache: fetchCacheMode/);
   assert.match(js, /writeHomeCache/);
-  assert.match(js, /homeDataBoot/);
+  assert.match(js, /publicDataBoot/);
+  assert.match(js, /pageLoadingStatus/);
   const watchers = js.slice(js.indexOf("const watchers = ["), js.indexOf("].filter((watcher)"));
   assert.equal(watchers.includes("home-class-preview"), false);
 });
