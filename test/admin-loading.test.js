@@ -67,3 +67,36 @@ test("apex pages send admin authentication directly to canonical API and recover
   assert.equal(vm.runInContext("adminDataState", context), "error");
   assert.equal(vm.runInContext("userCache.length", context), 1);
 });
+
+test("admin bootstrap retries an aborted first request instead of blocking the page", async () => {
+  let siteCalls = 0;
+  const context = {
+    location: { hostname: "www.oncodelab.co.kr" },
+    document: { getElementById: (id) => id === "admin" ? {} : null },
+    token: () => "test-token", getSession: () => ({ role: "admin" }), isAdmin: () => true,
+    setTimeout, clearTimeout, console, AbortSignal: { timeout: () => undefined },
+    fetch: async (url) => {
+      if (url.includes("/api/site-data?view=admin")) {
+        siteCalls += 1;
+        if (siteCalls === 1) {
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          throw error;
+        }
+      }
+      if (url.includes("/api/admin/users") || url.includes("/api/admin/applications")) {
+        return { ok: true, json: async () => [] };
+      }
+      return { ok: true, json: async () => ({ classes: [{ id: "class" }], tests: [], notices: [], posts: [], applyFields: [] }) };
+    },
+  };
+  vm.createContext(context);
+  vm.runInContext(source.slice(0, source.indexOf("let classCache")) + `
+    let classCache, testCache, noticeCache, postCache, applyFieldCache, userCache, applyCache,
+      popupCache, myApplyAccess, myClassApplications, adminDataState, adminListsState, adminDataError;
+  ` + source.slice(source.indexOf("function fetchCacheMode"), source.indexOf("// Intentionally in-memory")), context);
+  await vm.runInContext("loadSiteData()", context);
+  assert.equal(siteCalls, 2);
+  assert.equal(vm.runInContext("adminDataState", context), "ready");
+  assert.equal(vm.runInContext("classCache[0].id", context), "class");
+});

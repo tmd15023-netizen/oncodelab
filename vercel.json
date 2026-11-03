@@ -1,5 +1,10 @@
 {
   "regions": ["icn1"],
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60
+    }
+  },
   "redirects": [
     { "source": "/index", "destination": "/", "permanent": true },
     { "source": "/index.html", "destination": "/", "permanent": true },

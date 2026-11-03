@@ -477,7 +477,7 @@ app.get("/api/site-data", async (req, res) => {
     col("classes").aggregate([{ $project: classListProjection }]).toArray(),
     col("tests").find({}, home ? { projection: { id: 1, title: 1, summary: 1, password: 1, pinned: 1 } } : {}).sort({ pinned: -1, pinnedAt: -1, _id: 1 }).toArray(),
     col("notices").find({}).sort({ createdAt: -1 }).toArray(),
-    home ? [] : col("posts").find({}).sort({ createdAt: -1 }).toArray(),
+    home || admin ? [] : col("posts").find({}).sort({ createdAt: -1 }).toArray(),
     home ? [] : col("applyFields").find({}).sort({ order: 1 }).toArray(),
     Promise.resolve(null),
     Promise.resolve(null),

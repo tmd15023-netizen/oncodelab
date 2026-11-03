@@ -68,6 +68,7 @@ test("admin bootstrap is a dedicated view and public site-data omits member list
   });
   assert.equal(collections.includes("users"), false);
   assert.equal(collections.includes("applications"), false);
+  assert.equal(collections.includes("posts"), false);
 });
 
 test("homepage loads independently of personal application requests", async () => {

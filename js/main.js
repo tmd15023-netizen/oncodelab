@@ -107,8 +107,13 @@ async function api(path, options = {}) {
   let res;
   try {
     res = await fetch(API + path, { cache: fetchCacheMode(path, options), ...options, headers });
-  } catch {
-    throw new Error("서버에 연결할 수 없습니다. API 서버를 먼저 실행해 주세요.");
+  } catch (error) {
+    if (error?.name === "AbortError" || error?.name === "TimeoutError") {
+      const abortError = new Error("요청 시간이 초과되었습니다.");
+      abortError.name = error.name;
+      throw abortError;
+    }
+    throw new Error("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
   }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || "요청에 실패했습니다.");
@@ -252,9 +257,7 @@ async function loadSiteData() {
   const loggedIn = Boolean(getSession());
   const adminPage = isAdmin() && typeof document !== "undefined" && Boolean(document.getElementById("admin"));
   if (adminPage) {
-    const timed = (path) => api(path, { signal: requestTimeout(20000) });
-    try {
-      const data = await timed("/api/site-data?view=admin");
+    const applyAdminShell = (data) => {
       if (data.classes) classCache = data.classes;
       if (data.tests) testCache = data.tests;
       if (data.notices) noticeCache = data.notices;
@@ -263,27 +266,43 @@ async function loadSiteData() {
       if (data.popup) popupCache = data.popup;
       adminDataState = "ready";
       adminDataError = "";
-      if (typeof initAdmin === "function") initAdmin();
+    };
+    const loadAdminLists = async () => {
+      const [users, applications] = await Promise.all([
+        api("/api/admin/users"),
+        api("/api/admin/applications"),
+      ]);
+      if (!Array.isArray(users) || !Array.isArray(applications)) {
+        throw new Error("관리자 인증을 확인할 수 없습니다. 다시 로그인해 주세요.");
+      }
+      userCache = users;
+      applyCache = applications;
+      adminListsState = "ready";
+    };
+    const paintAdmin = () => { if (typeof initAdmin === "function") initAdmin(); };
+    try {
+      applyAdminShell(await api("/api/site-data?view=admin"));
+      paintAdmin();
       try {
-        const [users, applications] = await Promise.all([
-          timed("/api/admin/users"),
-          timed("/api/admin/applications"),
-        ]);
-        if (!Array.isArray(users) || !Array.isArray(applications)) {
-          throw new Error("관리자 인증을 확인할 수 없습니다. 다시 로그인해 주세요.");
-        }
-        userCache = users;
-        applyCache = applications;
-        adminListsState = "ready";
-        if (typeof initAdmin === "function") initAdmin();
+        await loadAdminLists();
       } catch (error) {
         adminListsState = "error";
         adminDataError = timeoutMessage(error, "회원과 신청 내역 응답이 늦습니다. 다시 불러와 주세요.");
-        if (typeof initAdmin === "function") initAdmin();
       }
+      paintAdmin();
     } catch (error) {
-      adminDataState = "error";
-      adminDataError = timeoutMessage(error, "서버 응답이 늦어 중단했습니다. 다시 불러와 주세요.");
+      adminDataError = timeoutMessage(error, "서버 응답이 늦어 다시 시도합니다.");
+      paintAdmin();
+      try {
+        applyAdminShell(await api("/api/site-data?view=admin"));
+        paintAdmin();
+        await loadAdminLists();
+        paintAdmin();
+      } catch (retryError) {
+        adminDataState = "error";
+        adminDataError = timeoutMessage(retryError, "서버 응답이 늦습니다. 다시 불러와 주세요.");
+        paintAdmin();
+      }
     }
     return;
   }
@@ -1834,19 +1853,13 @@ function initAdmin() {
     return;
   }
 
-  if (adminDataState === "error") {
-    box.className = "admin-gate";
-    box.innerHTML = noticeCard("관리자 데이터를 불러오지 못했습니다", escapeHtml(adminDataError), '<p><button class="btn btn-line" type="button" data-admin-retry>다시 불러오기</button> <button class="btn btn-line" type="button" data-admin-login>다시 로그인</button></p>');
-    box.querySelector("[data-admin-retry]")?.addEventListener("click", async () => {
-      adminDataState = "loading";
-      adminListsState = "loading";
-      initAdmin();
-      await loadSiteData();
-      initAdmin();
-    });
-    box.querySelector("[data-admin-login]")?.addEventListener("click", () => openAuth("login"));
-    return;
-  }
+  const adminStatus = adminDataState === "error"
+    ? `${escapeHtml(adminDataError || "관리자 데이터를 불러오지 못했습니다.")} <button class="btn btn-line" type="button" data-admin-retry>다시 불러오기</button>`
+    : adminListsState === "error"
+      ? `${escapeHtml(adminDataError || "회원과 신청 내역을 불러오지 못했습니다.")} <button class="btn btn-line" type="button" data-admin-retry>다시 불러오기</button>`
+      : adminDataState !== "ready" || adminListsState !== "ready"
+        ? "회원과 신청 내역을 불러오는 중입니다."
+        : "";
   const me = getSession();
   const editingClass = classCache.find((item) => item.id === editClassId);
   const editingTest = testCache.find((item) => item.id === editTestId);
@@ -1894,7 +1907,7 @@ function initAdmin() {
       </div>
     </aside>
     <main class="dash-main">
-      ${adminListsState !== "ready" ? `<p class="sub admin-lists-status" role="status">${adminListsState === "error" ? `${escapeHtml(adminDataError || "회원과 신청 내역을 불러오지 못했습니다.")} <button class="btn btn-line" type="button" data-admin-retry>다시 불러오기</button>` : "회원과 신청 내역을 불러오는 중입니다."}</p>` : ""}
+      ${adminStatus ? `<p class="sub admin-lists-status" role="status">${adminStatus}</p>` : ""}
       ${adminTab === "overview" ? adminOverview() : ""}
       ${adminTab === "class" ? adminClassPanel(editingClass) : ""}
       ${adminTab === "test" ? adminTestPanel(editingTest) : ""}
@@ -1933,6 +1946,7 @@ function initAdmin() {
       return;
     }
     if (event.target.closest("[data-admin-retry]")) {
+      adminDataState = "loading";
       adminListsState = "loading";
       initAdmin();
       loadSiteData().then(() => initAdmin());
@@ -1958,6 +1972,12 @@ function initAdmin() {
       if (adminTab !== "notice") editNoticeId = null;
       if (adminTab !== "community") editPostId = null;
       if (adminTab !== "fields") editFieldId = null;
+      if (adminTab === "community" && !postCache.length) {
+        api("/api/posts").then((posts) => {
+          if (Array.isArray(posts)) postCache = posts;
+          initAdmin();
+        }).catch((error) => console.warn(error.message));
+      }
       initAdmin();
       return;
     }
