@@ -11,7 +11,7 @@ function fixture() {
   let record = null;
   const requireAdmin = () => {};
   const context = {
-    crypto, Buffer, requireAdmin,
+    crypto, Buffer, Map, requireAdmin,
     app: {
       put: (path, ...handlers) => routes.set(`PUT ${path}`, handlers),
       get: (path, ...handlers) => routes.set(`GET ${path}`, handlers),

@@ -438,13 +438,20 @@ app.put("/api/admin/popup", requireAdmin, async (req, res) => {
   res.json(publicPopup({ ...current, ...data }));
 });
 
+const popupImageCache = new Map();
 app.get("/api/popup/image", async (req, res) => {
-  const field = req.query.slot === "2" ? "image2DataUrl" : "imageDataUrl";
-  const item = await col("popupSettings").findOne({ _id: "homepage" }, { projection: { [field]: 1 } });
-  const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(item?.[field] || "");
-  if (!match) return res.status(404).end();
-  res.set({ "Content-Type": match[1], "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400", "X-Content-Type-Options": "nosniff" });
-  res.send(Buffer.from(match[2], "base64"));
+  const slot = req.query.slot === "2" ? "2" : "1";
+  const field = slot === "2" ? "image2DataUrl" : "imageDataUrl";
+  let payload = popupImageCache.get(slot);
+  if (!payload) {
+    const item = await col("popupSettings").findOne({ _id: "homepage" }, { projection: { [field]: 1 } });
+    const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(item?.[field] || "");
+    if (!match) return res.status(404).end();
+    payload = { type: match[1], buffer: Buffer.from(match[2], "base64") };
+    popupImageCache.set(slot, payload);
+  }
+  res.set({ "Content-Type": payload.type, "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400", "X-Content-Type-Options": "nosniff" });
+  res.send(payload.buffer);
 });
 
 const homePageCache = { body: null, at: 0 };
@@ -453,6 +460,7 @@ function clearPublicCache() {
   homePageCache.body = null;
   homePageCache.at = 0;
   posterBufferCache.clear();
+  popupImageCache.clear();
 }
 
 app.get("/api/site-data", async (req, res) => {

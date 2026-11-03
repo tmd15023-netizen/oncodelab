@@ -144,7 +144,6 @@ async function loadSiteData() {
           if (box) box.textContent = "불러오지 못했습니다. 새로고침해 주세요.";
         }
       }
-      throw error;
     }
     return;
   }
@@ -370,10 +369,33 @@ const HERO_CAROUSEL_INTERVAL_MS = 5000;
 let heroCarouselIndex = 0;
 let heroCarouselTimer = null;
 
+function isNarrowViewport() {
+  return typeof window !== "undefined" && window.matchMedia("(max-width: 700px)").matches;
+}
+
+function heroImageSrc(index) {
+  const n = index + 1;
+  return `images/hero${n}.webp?v=${HERO_CAROUSEL_IMAGE_OVERRIDES[n] || HERO_CAROUSEL_IMAGE_VERSION}`;
+}
+
 function updateHeroCarousel() {
   const track = document.getElementById("hero-carousel-track");
   if (!track) return;
   const total = HERO_CAROUSEL_COUNT;
+  const mobile = isNarrowViewport();
+  if (mobile) {
+    const slide = track.querySelector(".hero-slide");
+    const image = slide?.querySelector("img");
+    if (slide && image) {
+      slide.dataset.index = String(heroCarouselIndex);
+      image.src = heroImageSrc(heroCarouselIndex);
+      image.alt = `온코드랩 수업 사례 ${heroCarouselIndex + 1}`;
+    }
+    document.querySelectorAll("#hero-carousel-dots [data-hero-dot]").forEach((dot) => {
+      dot.classList.toggle("active", Number(dot.dataset.heroDot) === heroCarouselIndex);
+    });
+    return;
+  }
   track.querySelectorAll(".hero-slide").forEach((slide) => {
     const idx = Number(slide.dataset.index);
     let diff = idx - heroCarouselIndex;
@@ -408,8 +430,8 @@ function updateHeroCarousel() {
     slide.style.zIndex = zIndex;
     slide.style.pointerEvents = abs > 1 ? "none" : "auto";
   });
-  document.querySelectorAll("#hero-carousel-dots button").forEach((dot, idx) => {
-    dot.classList.toggle("active", idx === heroCarouselIndex);
+  document.querySelectorAll("#hero-carousel-dots [data-hero-dot]").forEach((dot) => {
+    dot.classList.toggle("active", Number(dot.dataset.heroDot) === heroCarouselIndex);
   });
 }
 
@@ -432,10 +454,12 @@ function initHeroCarousel() {
   const track = document.getElementById("hero-carousel-track");
   const dots = document.getElementById("hero-carousel-dots");
   if (!track || !dots) return;
-  track.innerHTML = Array.from(
-    { length: HERO_CAROUSEL_COUNT },
-    (_, i) => `<div class="hero-slide" data-index="${i}"><img ${i === 0 ? "src" : "data-src"}="images/hero${i + 1}.webp?v=${HERO_CAROUSEL_IMAGE_OVERRIDES[i + 1] || HERO_CAROUSEL_IMAGE_VERSION}" alt="온코드랩 수업 사례 ${i + 1}" width="720" height="405" ${i === 0 ? 'fetchpriority="high"' : ""} loading="${i === 0 ? "eager" : "lazy"}" decoding="async" /></div>`,
-  ).join("");
+  track.innerHTML = isNarrowViewport()
+    ? `<div class="hero-slide is-center" data-index="0"><img src="${heroImageSrc(0)}" alt="온코드랩 수업 사례 1" width="720" height="405" fetchpriority="high" decoding="async" /></div>`
+    : Array.from(
+      { length: HERO_CAROUSEL_COUNT },
+      (_, i) => `<div class="hero-slide" data-index="${i}"><img ${i === 0 ? "src" : "data-src"}="${heroImageSrc(i)}" alt="온코드랩 수업 사례 ${i + 1}" width="720" height="405" ${i === 0 ? 'fetchpriority="high"' : ""} loading="${i === 0 ? "eager" : "lazy"}" decoding="async" /></div>`,
+    ).join("");
   const dotButtons = Array.from({ length: HERO_CAROUSEL_COUNT }, (_, i) => `<button type="button" data-hero-dot="${i}" aria-label="${i + 1}번째 이미지로 이동"></button>`).join("");
   dots.innerHTML = `
     <button type="button" class="hero-carousel-arrow" data-hero-prev aria-label="이전 이미지">‹</button>
@@ -993,6 +1017,7 @@ async function ensureFullBlogReviews() {
 
 let homeReviewSearch = "";
 const HOME_REVIEW_PAGE_SIZE = 25; // 5행 5열
+const HOME_REVIEW_PAGE_SIZE_MOBILE = 10;
 
 function reviewThumbHtml(item) {
   return item.image
@@ -1053,7 +1078,7 @@ function homeReviewResultsHtml() {
   const query = homeReviewSearch.trim().toLowerCase();
   const filtered = query ? blogReviewCache.filter((item) => item.title.toLowerCase().includes(query)) : blogReviewCache;
   if (!filtered.length) return `<p class="sub" style="padding:24px 0">검색 결과가 없습니다.</p>`;
-  const pageItems = filtered.slice(0, HOME_REVIEW_PAGE_SIZE);
+  const pageItems = filtered.slice(0, isNarrowViewport() ? HOME_REVIEW_PAGE_SIZE_MOBILE : HOME_REVIEW_PAGE_SIZE);
   return `<div class="cards review-grid">${pageItems.map(homeReviewCardHtml).join("")}</div>`;
 }
 
@@ -2061,7 +2086,7 @@ function showHomePopup() {
   dialog.className = `home-image-popup${posters.length === 2 ? " has-two-posters" : ""}`;
   dialog.setAttribute("aria-label", popupCache.title);
   const posterHtml = posters.map((poster, index) => {
-    const image = `<img src="${escapeHtml(assetUrl(poster.imageUrl))}" alt="${escapeHtml(popupCache.title)} · ${index + 1}번 포스터" />`;
+    const image = `<img src="${escapeHtml(assetUrl(poster.imageUrl))}" alt="${escapeHtml(popupCache.title)} · ${index + 1}번 포스터" decoding="async" />`;
     const safeLink = /^https?:\/\//i.test(poster.linkUrl || "") || /^\/(?!\/)/.test(poster.linkUrl || "");
     return `<div class="home-popup-image">${safeLink ? `<a href="${escapeHtml(poster.linkUrl)}">${image}</a>` : image}</div>`;
   }).join("");
@@ -2070,20 +2095,37 @@ function showHomePopup() {
     <div class="home-popup-bottom"><button type="button" data-popup-today>오늘 하루 보지 않기</button><button type="button" data-popup-close>닫기</button></div>`;
   const previousFocus = document.activeElement;
   const previousOverflow = document.body.style.overflow;
+  let backdrop = null;
+  const cleanup = () => {
+    document.body.style.overflow = previousOverflow;
+    backdrop?.remove();
+    dialog.remove();
+    previousFocus?.focus?.({ preventScroll: true });
+  };
+  const closePopup = () => {
+    if (typeof dialog.close === "function" && dialog.open && !dialog.classList.contains("is-fallback-open")) dialog.close();
+    else cleanup();
+  };
   dialog.addEventListener("click", (event) => {
     if (event.target.closest("[data-popup-today]")) {
       const until = new Date(); until.setHours(24, 0, 0, 0);
       try { localStorage.setItem("oncodelab-popup-dismissed", JSON.stringify({ popupKey, until: until.getTime() })); } catch { /* Still allow closing. */ }
-      dialog.close();
-    } else if (event.target.closest("[data-popup-close]")) dialog.close();
+      closePopup();
+    } else if (event.target.closest("[data-popup-close]")) closePopup();
   });
-  dialog.addEventListener("close", () => {
-    document.body.style.overflow = previousOverflow;
-    dialog.remove();
-    previousFocus?.focus?.({ preventScroll: true });
-  }, { once: true });
+  dialog.addEventListener("close", cleanup, { once: true });
   document.body.append(dialog);
-  dialog.showModal();
+  try {
+    if (typeof dialog.showModal !== "function") throw new Error("dialog unsupported");
+    dialog.showModal();
+  } catch {
+    backdrop = document.createElement("div");
+    backdrop.className = "home-image-popup-backdrop";
+    backdrop.addEventListener("click", closePopup);
+    dialog.before(backdrop);
+    dialog.setAttribute("open", "");
+    dialog.classList.add("is-fallback-open");
+  }
   document.body.style.overflow = "hidden";
 }
 
@@ -3012,14 +3054,17 @@ document.addEventListener("DOMContentLoaded", async () => {
     // 관리자 화면은 다른 API 응답을 기다리느라 빈 페이지로 남지 않게 먼저 표시한다.
     initAdmin();
     const cachedHome = hydrateHomeCache();
-    if (cachedHome) renderHomePreviews();
+    if (cachedHome) {
+      renderHomePreviews();
+      showHomePopup();
+    }
     for (const id of ["home-class-preview", "home-test-preview", "home-notice-preview", "home-reviews"]) {
       const box = document.getElementById(id);
       if (box && !box.querySelector("a, .card, .home-preview-card, .home-board-row")) {
         box.innerHTML = '<p class="sub" role="status">불러오는 중입니다…</p>';
       }
     }
-    const later = typeof requestIdleCallback === "function" ? requestIdleCallback : (fn) => setTimeout(fn, 200);
+    const later = typeof requestIdleCallback === "function" ? requestIdleCallback : (fn) => setTimeout(fn, 400);
     later(() => {
       loadBlogReviews().then(() => {
         initCommunity();
@@ -3027,7 +3072,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
     });
     await loadSiteData();
-    showHomePopup();
     renderClassPage();
     renderHomePreviews();
     renderClassDetailPage();
@@ -3042,5 +3086,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     setupLivePolling();
   } catch (error) {
     console.warn(error.message);
+  } finally {
+    showHomePopup();
   }
 });
