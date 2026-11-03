@@ -457,12 +457,14 @@ function clearPublicCache() {
 
 app.get("/api/site-data", async (req, res) => {
   const home = req.query.view === "home";
+  const adminView = req.query.view === "admin";
   if (home && homePageCache.body && Date.now() - homePageCache.at < 20000) {
     res.set("Cache-Control", "public, max-age=15, s-maxage=60, stale-while-revalidate=300");
     return res.json(homePageCache.body);
   }
   const user = home ? null : await userFromReq(req);
-  const admin = isAdmin(user);
+  if (adminView && !isAdmin(user)) return res.status(401).json({ error: "관리자만 이용할 수 있습니다." });
+  const admin = adminView;
   const [classes, tests, notices, posts, applyFields, users, applications, popup] = await Promise.all([
     col("classes").aggregate([{ $project: classListProjection }]).toArray(),
     col("tests").find({}, home ? { projection: { id: 1, title: 1, summary: 1, password: 1, pinned: 1 } } : {}).sort({ pinned: -1, pinnedAt: -1, _id: 1 }).toArray(),
@@ -470,7 +472,9 @@ app.get("/api/site-data", async (req, res) => {
     home ? [] : col("posts").find({}).sort({ createdAt: -1 }).toArray(),
     home ? [] : col("applyFields").find({}).sort({ order: 1 }).toArray(),
     admin ? col("users").find({}).project({ passwordHash: 0 }).toArray() : Promise.resolve(null),
-    admin ? col("applications").find({}).sort({ createdAt: -1 }).toArray() : Promise.resolve(null),
+    admin ? col("applications").find({}).project({
+      id: 1, classId: 1, kind: 1, type: 1, values: 1, instructor: 1, note: 1, status: 1, createdAt: 1, viewedAt: 1,
+    }).sort({ createdAt: -1 }).toArray() : Promise.resolve(null),
     col("popupSettings").findOne(admin ? { _id: "homepage" } : { _id: "homepage", enabled: true }, { projection: { imageDataUrl: 0, image2DataUrl: 0 } }),
   ]);
   const body = {

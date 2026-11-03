@@ -39,6 +39,37 @@ test("home data skips account and private collections even with an admin token",
   assert.match(headers["Cache-Control"], /public.*s-maxage=60/);
 });
 
+test("admin bootstrap is a dedicated view and public site-data omits member lists", async () => {
+  const source = fs.readFileSync(new URL("../server/index.js", import.meta.url), "utf8");
+  let handler;
+  const collections = [];
+  const context = {
+    app: { get: (_path, fn) => { handler = fn; } },
+    userFromReq: async () => ({ role: "admin" }),
+    isAdmin: () => true,
+    publicClass, publicTest, publicNotice,
+    publicPost: () => ({ id: "post" }),
+    publicApplyField: () => ({ id: "field" }),
+    publicUser: (user) => user,
+    publicApplication: (item) => item,
+    publicPopup: () => null, classListProjection: {}, sortClasses: (items) => items,
+    homePageCache: { body: null, at: 0 },
+    col: (name) => {
+      collections.push(name);
+      const cursor = { project() { return cursor; }, sort: () => cursor, toArray: async () => [] };
+      return { aggregate: () => cursor, find: () => cursor, findOne: async () => null };
+    },
+  };
+  const start = source.indexOf('app.get("/api/site-data"');
+  const end = source.indexOf('app.get("/api/classes/:id/poster"', start);
+  vm.runInNewContext(source.slice(start, end), context);
+  await handler({ query: {}, headers: { authorization: "Bearer admin" } }, {
+    set() {}, json() {},
+  });
+  assert.equal(collections.includes("users"), false);
+  assert.equal(collections.includes("applications"), false);
+});
+
 test("homepage loads independently of personal application requests", async () => {
   const source = fs.readFileSync(new URL("../js/main.js", import.meta.url), "utf8");
   const requests = [];

@@ -10,7 +10,7 @@ test("admin bootstrap uses one request and accepts empty authenticated lists", a
     location: { hostname: "www.oncodelab.co.kr" },
     document: { getElementById: (id) => id === "admin" ? {} : null },
     token: () => "test-token", getSession: () => ({ role: "admin" }), isAdmin: () => true,
-    setTimeout, clearTimeout, console,
+    setTimeout, clearTimeout, console, AbortSignal: { timeout: () => undefined },
     fetch: async (url) => {
       requests.push(url);
       return { ok: true, json: async () => ({ users: [], applications: [] }) };
@@ -22,7 +22,7 @@ test("admin bootstrap uses one request and accepts empty authenticated lists", a
       popupCache, myApplyAccess, myClassApplications, adminDataState, adminDataError;
   ` + source.slice(source.indexOf("function fetchCacheMode"), source.indexOf("// Intentionally in-memory")), context);
   await vm.runInContext("loadSiteData()", context);
-  assert.deepEqual(requests, ["/api/site-data"]);
+  assert.deepEqual(requests, ["/api/site-data?view=admin"]);
   assert.equal(vm.runInContext("adminDataState", context), "ready");
   assert.equal(vm.runInContext("userCache.length + applyCache.length", context), 0);
 });
@@ -31,13 +31,14 @@ test("apex pages send admin authentication directly to canonical API and recover
   const requests = [];
   const context = {
     location: { hostname: "oncodelab.co.kr" },
+    document: { getElementById: (id) => id === "admin" ? {} : null },
     token: () => "test-token", getSession: () => ({ role: "admin" }), isAdmin: () => true,
-    setTimeout, clearTimeout, console,
+    setTimeout, clearTimeout, console, AbortSignal: { timeout: () => undefined },
     fetch: async (url, options) => {
       requests.push({ url, options });
-      const data = url.endsWith("/admin/users") ? [{ email: "test@example.com" }]
-        : url.endsWith("/admin/applications") ? [{ id: "existing-application" }]
-        : url.endsWith("/site-data") ? { users: null, applications: null } : [];
+      const data = url.includes("/site-data?view=admin")
+        ? { users: [{ email: "test@example.com" }], applications: [{ id: "existing-application" }] }
+        : [];
       return { ok: true, json: async () => data };
     },
   };

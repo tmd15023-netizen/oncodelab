@@ -165,40 +165,40 @@ async function loadSiteData() {
   };
   const loggedIn = Boolean(getSession());
   const adminPage = isAdmin() && typeof document !== "undefined" && Boolean(document.getElementById("admin"));
+  if (adminPage) {
+    try {
+      const data = await api("/api/site-data?view=admin", {
+        signal: typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined,
+      });
+      if (data.classes) classCache = data.classes;
+      if (data.tests) testCache = data.tests;
+      if (data.notices) noticeCache = data.notices;
+      if (data.posts) postCache = data.posts;
+      if (data.applyFields) applyFieldCache = data.applyFields;
+      if (data.popup) popupCache = data.popup;
+      if (!Array.isArray(data.users) || !Array.isArray(data.applications)) {
+        throw new Error("관리자 인증을 확인할 수 없습니다. 다시 로그인해 주세요.");
+      }
+      userCache = data.users;
+      applyCache = data.applications;
+      adminDataState = "ready";
+      adminDataError = "";
+    } catch (error) {
+      adminDataState = "error";
+      adminDataError = error.name === "TimeoutError" ? "서버 응답이 늦어 중단했습니다. 다시 불러와 주세요." : error.message;
+    }
+    return;
+  }
   const [siteData, myApplications] = await Promise.all([
     safe(api("/api/site-data")),
-    loggedIn && !adminPage ? safe(api("/api/my-applications")) : Promise.resolve(null),
+    loggedIn ? safe(api("/api/my-applications")) : Promise.resolve(null),
   ]);
-  const { classes, tests, notices, posts, applyFields, users, applications } = siteData || {};
+  const { classes, tests, notices, posts, applyFields } = siteData || {};
   if (classes) classCache = classes;
   if (tests) testCache = tests;
   if (notices) noticeCache = notices;
   if (posts) postCache = posts;
   if (applyFields) applyFieldCache = applyFields;
-  if (users) userCache = users;
-  if (applications) applyCache = applications;
-  if (isAdmin()) {
-    try {
-      // Protected endpoints reject expired sessions instead of returning the
-      // public bootstrap's null lists, which must never mean zero members.
-      const [members, entries] = Array.isArray(users) && Array.isArray(applications)
-        ? [users, applications]
-        : await Promise.all([
-          api("/api/admin/users"), api("/api/admin/applications"),
-        ]);
-      userCache = members;
-      applyCache = entries;
-      adminDataState = "ready";
-      adminDataError = "";
-    } catch (error) {
-      adminDataState = "error";
-      adminDataError = error.message;
-    }
-  } else {
-    adminDataState = "loading";
-    userCache = [];
-    applyCache = [];
-  }
   if (siteData) popupCache = siteData.popup || null;
   myApplyAccess = {};
   myClassApplications = myApplications || [];
@@ -2957,7 +2957,7 @@ function setupLivePolling() {
       if (refreshing || document.hidden || !isAdmin() || isTypingInside(adminBox) || adminTab !== "overview") return;
       refreshing = true;
       try {
-        const data = await api("/api/site-data");
+        const data = await api("/api/site-data?view=admin");
         // Recheck after the request so a tab switch or an edit is never replaced.
         if (!isAdmin() || adminTab !== "overview" || isTypingInside(adminBox)) return;
         classCache = data.classes; testCache = data.tests; noticeCache = data.notices;
