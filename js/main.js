@@ -198,9 +198,26 @@ function timeoutMessage(error, fallback) {
   return error.name === "TimeoutError" || error.name === "AbortError" ? fallback : error.message;
 }
 
+function isPublicClassPage() {
+  return typeof document !== "undefined" && Boolean(
+    document.getElementById("home-class-preview")
+    || document.getElementById("class-list")
+    || document.getElementById("class-detail"),
+  );
+}
+
+function popupHref(url) {
+  const value = String(url || "").trim();
+  if (/^https?:\/\//i.test(value) || /^\/(?!\/)/.test(value)) return value;
+  if (/^(class|class-detail|contact|diagnosis|notice|community|instructor|program|about)([/?#]|$)/i.test(value)) {
+    return `/${value}`;
+  }
+  return "/class";
+}
+
 async function loadSiteData() {
-  // The public homepage must never wait for private account data.
-  if (typeof document !== "undefined" && document.getElementById("home-class-preview")) {
+  // Public class surfaces share the cached homepage payload.
+  if (isPublicClassPage()) {
     try {
       const data = await loadHomeSiteData();
       applyHomeData(data);
@@ -2175,9 +2192,9 @@ function showHomePopup() {
   dialog.className = `home-image-popup${posters.length === 2 ? " has-two-posters" : ""}`;
   dialog.setAttribute("aria-label", popupCache.title);
   const posterHtml = posters.map((poster, index) => {
+    const href = popupHref(poster.linkUrl);
     const image = `<img src="${escapeHtml(assetUrl(poster.imageUrl))}" alt="${escapeHtml(popupCache.title)} · ${index + 1}번 포스터" fetchpriority="high" decoding="async" />`;
-    const safeLink = /^https?:\/\//i.test(poster.linkUrl || "") || /^\/(?!\/)/.test(poster.linkUrl || "");
-    return `<div class="home-popup-image">${safeLink ? `<a href="${escapeHtml(poster.linkUrl)}">${image}</a>` : image}</div>`;
+    return `<div class="home-popup-image"><a href="${escapeHtml(href)}">${image}</a></div>`;
   }).join("");
   dialog.innerHTML = `<div class="home-popup-top"><strong>${escapeHtml(popupCache.title)}</strong><button type="button" data-popup-close aria-label="팝업 닫기">×</button></div>
     <div class="home-popup-posters">${posterHtml}</div>
@@ -2196,6 +2213,13 @@ function showHomePopup() {
     else cleanup();
   };
   dialog.addEventListener("click", (event) => {
+    const link = event.target.closest("a[href]");
+    if (link) {
+      event.preventDefault();
+      closePopup();
+      location.assign(link.getAttribute("href"));
+      return;
+    }
     if (event.target.closest("[data-popup-today]")) {
       const until = new Date(); until.setHours(24, 0, 0, 0);
       try { localStorage.setItem("oncodelab-popup-dismissed", JSON.stringify({ popupKey, until: until.getTime() })); } catch { /* Still allow closing. */ }

@@ -136,12 +136,23 @@ test("home popup stays visible when showModal is unavailable", () => {
     popupCache: { enabled: true, imageUrl: "/api/popup/image?v=1", title: "안내" },
     escapeHtml: (value) => String(value),
     assetUrl: (value) => value,
+    popupHref: (url) => String(url || "").trim() || "/class",
     readJson: () => null,
   });
   vm.runInContext(source.slice(source.indexOf("function showHomePopup"), source.indexOf("function adminChangeItems")), context);
   vm.runInContext("showHomePopup()", context);
   assert.equal(classNames.has("is-fallback-open"), true);
   assert.equal(appended.includes(dialog), true);
+  assert.match(dialog.innerHTML, /href="\/class"/);
+});
+
+test("popup poster links fall back to the class apply list", () => {
+  const source = fs.readFileSync(new URL("../js/main.js", import.meta.url), "utf8");
+  const context = vm.createContext({});
+  vm.runInContext(source.slice(source.indexOf("function popupHref"), source.indexOf("async function loadSiteData")), context);
+  assert.equal(vm.runInContext("popupHref('')", context), "/class");
+  assert.equal(vm.runInContext("popupHref('class-detail?id=one')", context), "/class-detail?id=one");
+  assert.equal(vm.runInContext("popupHref('/contact')", context), "/contact");
 });
 
 test("homepage blog reviews fetch the latest feed only", async () => {
