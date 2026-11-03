@@ -17,10 +17,10 @@ test("admin bootstrap uses one request and accepts empty authenticated lists", a
     },
   };
   vm.createContext(context);
-  vm.runInContext(source.slice(0, source.indexOf("(function showPageLoading")) + `
+  vm.runInContext(source.slice(0, source.indexOf("let classCache")) + `
     let classCache, testCache, noticeCache, postCache, applyFieldCache, userCache, applyCache,
       popupCache, myApplyAccess, myClassApplications, adminDataState, adminDataError;
-  ` + source.slice(source.indexOf("async function api("), source.indexOf("// Intentionally in-memory")), context);
+  ` + source.slice(source.indexOf("function fetchCacheMode"), source.indexOf("// Intentionally in-memory")), context);
   await vm.runInContext("loadSiteData()", context);
   assert.deepEqual(requests, ["/api/site-data"]);
   assert.equal(vm.runInContext("adminDataState", context), "ready");
@@ -42,10 +42,10 @@ test("apex pages send admin authentication directly to canonical API and recover
     },
   };
   vm.createContext(context);
-  vm.runInContext(source.slice(0, source.indexOf("(function showPageLoading")) + `
+  vm.runInContext(source.slice(0, source.indexOf("let classCache")) + `
     let classCache, testCache, noticeCache, postCache, applyFieldCache, userCache, applyCache,
       popupCache, myApplyAccess, myClassApplications, adminDataState, adminDataError;
-  ` + source.slice(source.indexOf("async function api("), source.indexOf("// Intentionally in-memory")), context);
+  ` + source.slice(source.indexOf("function fetchCacheMode"), source.indexOf("// Intentionally in-memory")), context);
   await vm.runInContext("loadSiteData()", context);
   assert.equal(vm.runInContext("adminDataState", context), "ready");
   assert.equal(vm.runInContext("userCache.length", context), 1);

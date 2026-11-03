@@ -82,6 +82,7 @@ const classListProjection = {
     "data:image/",
     { $ifNull: ["$posterUrl", ""] },
   ] },
+  posterVersion: 1,
 };
 
 function sortClasses(items) {
@@ -136,26 +137,31 @@ async function saveDoc(res, name, id, data, mapFn, missing) {
   if (id) {
     const updated = unwrap(await col(name).findOneAndUpdate({ id }, { $set: data }, { returnDocument: "after" }));
     if (!updated) return res.status(404).json({ error: missing });
+    clearPublicCache();
     return res.json(mapFn(updated));
   }
   await col(name).insertOne(data);
+  clearPublicCache();
   res.json(mapFn(data));
 }
 
 function classPayload(body, id) {
-  return {
+  const posterUrl = String(body.posterUrl || "").trim();
+  const item = {
     id: id || String(body.id || makeId("class")),
     label: String(body.label || "CLASS").trim(),
     tone: ["live", "vod", "off"].includes(body.tone) ? body.tone : "live",
     status: String(body.status || "온라인 · 진행중").trim(),
     title: String(body.title || "").trim(),
     summary: String(body.summary || "").trim(),
-    posterUrl: String(body.posterUrl || "").trim(),
+    posterUrl,
     linkUrl: String(body.linkUrl || "").trim(),
     fileUrl: String(body.fileUrl || "").trim(),
     fileName: String(body.fileName || "").trim(),
     password: String(body.password || "").trim(),
   };
+  if (posterUrl.startsWith("data:image/")) item.posterVersion = crypto.randomBytes(6).toString("hex");
+  return item;
 }
 
 function testPayload(body, id, existing = {}) {
@@ -411,6 +417,7 @@ app.put("/api/admin/popup/images/:slot", requireAdmin, async (req, res) => {
     ? { image2DataUrl: value, hasImage2: true, image2Version: crypto.randomBytes(8).toString("hex") }
     : { imageDataUrl: value, hasImage: true, imageVersion: crypto.randomBytes(8).toString("hex") };
   await col("popupSettings").updateOne({ _id: "homepage" }, { $set: data }, { upsert: true });
+  clearPublicCache();
   res.json({ ok: true });
 });
 
@@ -427,6 +434,7 @@ app.put("/api/admin/popup", requireAdmin, async (req, res) => {
   }
   if (data.enabled && !data.hasImage && !current?.hasImage) return res.status(400).json({ error: "팝업 이미지를 먼저 등록해 주세요." });
   await col("popupSettings").updateOne({ _id: "homepage" }, { $set: data }, { upsert: true });
+  clearPublicCache();
   res.json(publicPopup({ ...current, ...data }));
 });
 
@@ -435,12 +443,24 @@ app.get("/api/popup/image", async (req, res) => {
   const item = await col("popupSettings").findOne({ _id: "homepage" }, { projection: { [field]: 1 } });
   const match = /^data:(image\/(?:png|jpeg|webp|gif));base64,([a-z0-9+/=]+)$/i.exec(item?.[field] || "");
   if (!match) return res.status(404).end();
-  res.set({ "Content-Type": match[1], "Cache-Control": "public, max-age=0, s-maxage=60", "X-Content-Type-Options": "nosniff" });
+  res.set({ "Content-Type": match[1], "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400", "X-Content-Type-Options": "nosniff" });
   res.send(Buffer.from(match[2], "base64"));
 });
 
+const homePageCache = { body: null, at: 0 };
+const posterBufferCache = new Map();
+function clearPublicCache() {
+  homePageCache.body = null;
+  homePageCache.at = 0;
+  posterBufferCache.clear();
+}
+
 app.get("/api/site-data", async (req, res) => {
   const home = req.query.view === "home";
+  if (home && homePageCache.body && Date.now() - homePageCache.at < 20000) {
+    res.set("Cache-Control", "public, max-age=15, s-maxage=60, stale-while-revalidate=300");
+    return res.json(homePageCache.body);
+  }
   const user = home ? null : await userFromReq(req);
   const admin = isAdmin(user);
   const [classes, tests, notices, posts, applyFields, users, applications, popup] = await Promise.all([
@@ -453,8 +473,7 @@ app.get("/api/site-data", async (req, res) => {
     admin ? col("applications").find({}).sort({ createdAt: -1 }).toArray() : Promise.resolve(null),
     col("popupSettings").findOne(admin ? { _id: "homepage" } : { _id: "homepage", enabled: true }, { projection: { imageDataUrl: 0, image2DataUrl: 0 } }),
   ]);
-  res.set("Cache-Control", home ? "public, max-age=0, s-maxage=30, stale-while-revalidate=60" : "private, no-store");
-  res.json({
+  const body = {
     classes: sortClasses(classes).map((item) => publicClass(item, { includeSecret: admin })),
     tests: tests.map((item) => publicTest(item, { includeSecret: admin })),
     notices: notices.map(publicNotice),
@@ -463,20 +482,32 @@ app.get("/api/site-data", async (req, res) => {
     users: users?.map(publicUser) || null,
     applications: applications?.map(publicApplication) || null,
     popup: publicPopup(popup),
-  });
+  };
+  if (home) {
+    homePageCache.body = body;
+    homePageCache.at = Date.now();
+  }
+  res.set("Cache-Control", home ? "public, max-age=15, s-maxage=60, stale-while-revalidate=300" : "private, no-store");
+  res.json(body);
 });
 
 app.get("/api/classes/:id/poster", async (req, res) => {
-  const item = await col("classes").findOne({ id: req.params.id }, { projection: { posterUrl: 1 } });
-  const match = /^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=]+)$/i.exec(item?.posterUrl || "");
-  if (!match) return res.status(404).end();
+  const cacheKey = `${req.params.id}:${req.query.v || "1"}`;
+  let payload = posterBufferCache.get(cacheKey);
+  if (!payload) {
+    const item = await col("classes").findOne({ id: req.params.id }, { projection: { posterUrl: 1 } });
+    const match = /^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=]+)$/i.exec(item?.posterUrl || "");
+    if (!match) return res.status(404).end();
+    payload = { type: match[1], buffer: Buffer.from(match[2], "base64") };
+    posterBufferCache.set(cacheKey, payload);
+  }
   res.set({
-    "Content-Type": match[1],
-    "Cache-Control": "public, max-age=0, s-maxage=60",
+    "Content-Type": payload.type,
+    "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
     "X-Content-Type-Options": "nosniff",
     "Content-Security-Policy": "default-src 'none'; sandbox",
   });
-  res.send(Buffer.from(match[2], "base64"));
+  res.send(payload.buffer);
 });
 
 app.post("/api/admin/classes/upload", requireAdmin, upload.single("file"), (req, res) => {
@@ -889,6 +920,7 @@ app.put("/api/admin/classes/order", requireAdmin, async (req, res) => {
   const count = await col("classes").countDocuments();
   if (uniqueIds.length !== count) return res.status(400).json({ error: "전체 Class 순서를 다시 확인해 주세요." });
   await col("classes").bulkWrite(uniqueIds.map((id, order) => ({ updateOne: { filter: { id }, update: { $set: { order } } } })));
+  clearPublicCache();
   res.json({ ok: true });
 });
 
@@ -905,6 +937,7 @@ app.delete("/api/admin/classes/:id", requireAdmin, async (req, res) => {
   if (!(await col("classes").deleteOne({ id: req.params.id })).deletedCount) {
     return res.status(404).json({ error: "교육을 찾을 수 없습니다." });
   }
+  clearPublicCache();
   res.json({ ok: true });
 });
 

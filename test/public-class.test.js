@@ -4,7 +4,7 @@ import { publicClass } from "../server/db.js";
 
 test("embedded class posters are returned as individual image URLs", () => {
   const result = publicClass({ id: "class-one", title: "Class", posterUrl: "data:image/png;base64,AAAA" });
-  assert.equal(result.posterUrl, "/api/classes/class-one/poster");
+  assert.equal(result.posterUrl, "/api/classes/class-one/poster?v=1");
   assert.equal(JSON.stringify(result).includes("base64"), false);
 });
 

@@ -37,9 +37,13 @@ export async function connectDb() {
 async function initializeDb() {
   await client.connect();
   const connectedDb = client.db("oncodelab");
-  // Run index creation (idempotent) and the seed check in parallel batches
-  // instead of 13 sequential round-trips — on a cold serverless start this
-  // was the single biggest source of added latency per request.
+  db = connectedDb;
+  // Indexes and seed must not block the first page request on a cold start.
+  ensureSchema(connectedDb).catch((error) => console.error("스키마 준비 실패:", error.message));
+  return db;
+}
+
+async function ensureSchema(connectedDb) {
   await Promise.all([
     connectedDb.collection("users").createIndex({ email: 1 }, { unique: true }),
     connectedDb.collection("classes").createIndex({ id: 1 }, { unique: true }),
@@ -51,8 +55,6 @@ async function initializeDb() {
     connectedDb.collection("applyFields").createIndex({ id: 1 }, { unique: true }),
   ]);
   await seedIfEmpty(connectedDb);
-  db = connectedDb;
-  return db;
 }
 
 export function getDb() {
@@ -129,7 +131,9 @@ export function publicClass(cls, { includeSecret = false } = {}) {
     title: cls.title,
     summary: cls.summary,
     // Keep the original image in MongoDB, but never embed it in a JSON response.
-    posterUrl: posterUrl.startsWith("data:image/") ? `/api/classes/${encodeURIComponent(cls.id)}/poster` : posterUrl,
+    posterUrl: posterUrl.startsWith("data:image/")
+      ? `/api/classes/${encodeURIComponent(cls.id)}/poster?v=${encodeURIComponent(cls.posterVersion || "1")}`
+      : posterUrl,
     order: Number.isFinite(Number(cls.order)) ? Number(cls.order) : null,
   };
   return includeSecret

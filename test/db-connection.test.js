@@ -11,31 +11,29 @@ test("concurrent requests share initialization and failed initialization can ret
   let connects = 0;
   let indexes = 0;
   let fail = true;
-  let release;
-  const gate = new Promise((resolve) => { release = resolve; });
   const database = {
     collection: () => ({
-      createIndex: async () => {
-        indexes++;
-        await gate;
-        if (fail) throw new Error("temporary failure");
-      },
+      createIndex: async () => { indexes++; },
       findOne: async () => ({ done: true }),
     }),
   };
-  const context = vm.createContext({ client: {
-    connect: async () => { connects++; },
-    db: () => database,
-  } });
+  const context = vm.createContext({
+    console: { error() {} },
+    client: {
+      connect: async () => {
+        connects++;
+        if (fail) throw new Error("temporary failure");
+      },
+      db: () => database,
+    },
+  });
   vm.runInContext(connectionSource, context);
-  const first = vm.runInContext("connectDb()", context);
-  const second = vm.runInContext("connectDb()", context);
-  const failed = Promise.all([assert.rejects(first, /temporary failure/), assert.rejects(second, /temporary failure/)]);
-  assert.throws(() => vm.runInContext("getDb()", context), /아직 연결/);
-  release();
-  await failed;
+  await Promise.all([
+    assert.rejects(vm.runInContext("connectDb()", context), /temporary failure/),
+    assert.rejects(vm.runInContext("connectDb()", context), /temporary failure/),
+  ]);
   assert.equal(connects, 1);
-  assert.equal(indexes, 8);
+  assert.throws(() => vm.runInContext("getDb()", context), /아직 연결/);
   fail = false;
   const results = await Promise.all([
     vm.runInContext("connectDb()", context),
@@ -43,8 +41,9 @@ test("concurrent requests share initialization and failed initialization can ret
   ]);
   assert.ok(results.every((result) => result === database));
   assert.equal(connects, 2);
-  assert.equal(indexes, 16);
   assert.equal(vm.runInContext("getDb()", context), database);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(indexes, 8);
   await vm.runInContext("connectDb()", context);
   assert.equal(connects, 2);
 });

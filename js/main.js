@@ -3,23 +3,6 @@
 const API = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? "http://127.0.0.1:3000"
   : location.hostname === "oncodelab.co.kr" ? "https://www.oncodelab.co.kr" : "";
 
-(function showPageLoading() {
-  const overlay = document.createElement("div");
-  overlay.id = "page-loading";
-  overlay.className = "page-loading";
-  overlay.innerHTML = `<div class="page-loading-spinner"></div>`;
-  document.body.appendChild(overlay);
-  // Safety net: never let the overlay block the page for more than a few seconds,
-  // even if something upstream hangs unexpectedly.
-  setTimeout(() => overlay.remove(), 8000);
-})();
-
-function hidePageLoading() {
-  const overlay = document.getElementById("page-loading");
-  if (!overlay) return;
-  overlay.classList.add("hide");
-  setTimeout(() => overlay.remove(), 250);
-}
 let classCache = [];
 let popupCache = null;
 let homePopupShown = false;
@@ -107,13 +90,22 @@ function clearAuth() {
   localStorage.removeItem("oncodelab-session");
 }
 
+function fetchCacheMode(path, options) {
+  const method = String(options.method || "GET").toUpperCase();
+  if (method !== "GET") return "no-store";
+  if (path.startsWith("/api/site-data?view=home") || path.startsWith("/api/blog-reviews") || path.startsWith("/api/classes") || path.startsWith("/api/tests") || path.startsWith("/api/notices") || path.startsWith("/api/posts")) {
+    return "default";
+  }
+  return "no-store";
+}
+
 async function api(path, options = {}) {
   const headers = { ...(options.headers || {}) };
   if (options.body) headers["Content-Type"] = "application/json";
   if (token()) headers.Authorization = `Bearer ${token()}`;
   let res;
   try {
-    res = await fetch(API + path, { cache: "no-store", ...options, headers });
+    res = await fetch(API + path, { cache: fetchCacheMode(path, options), ...options, headers });
   } catch {
     throw new Error("서버에 연결할 수 없습니다. API 서버를 먼저 실행해 주세요.");
   }
@@ -122,20 +114,35 @@ async function api(path, options = {}) {
   return data;
 }
 
+function applyHomeData(data) {
+  classCache = data.classes || [];
+  testCache = data.tests || [];
+  noticeCache = data.notices || [];
+  popupCache = data.popup || null;
+}
+
+function hydrateHomeCache() {
+  if (typeof document === "undefined" || !document.getElementById("home-class-preview")) return false;
+  const cached = readJson(sessionStorage, "oncodelab-home-data", null);
+  if (!cached?.data?.classes) return false;
+  applyHomeData(cached.data);
+  return true;
+}
+
 async function loadSiteData() {
   // The public homepage must never wait for private account data.
   if (typeof document !== "undefined" && document.getElementById("home-class-preview")) {
     try {
       const data = await api("/api/site-data?view=home");
-      classCache = data.classes;
-      testCache = data.tests;
-      noticeCache = data.notices;
-      popupCache = data.popup || null;
+      applyHomeData(data);
+      try { sessionStorage.setItem("oncodelab-home-data", JSON.stringify({ at: Date.now(), data })); } catch { /* ignore quota */ }
     } catch (error) {
       console.warn(error.message);
-      for (const id of ["home-class-preview", "home-test-preview", "home-notice-preview"]) {
-        const box = document.getElementById(id);
-        if (box) box.textContent = "불러오지 못했습니다. 새로고침해 주세요.";
+      if (!classCache.length) {
+        for (const id of ["home-class-preview", "home-test-preview", "home-notice-preview"]) {
+          const box = document.getElementById(id);
+          if (box) box.textContent = "불러오지 못했습니다. 새로고침해 주세요.";
+        }
       }
       throw error;
     }
@@ -357,8 +364,8 @@ function renderCourses(type = "all") {
 }
 
 const HERO_CAROUSEL_COUNT = 18;
-const HERO_CAROUSEL_IMAGE_VERSION = "20261021-new-images";
-const HERO_CAROUSEL_IMAGE_OVERRIDES = { 9: "20261021-hero9-v2" };
+const HERO_CAROUSEL_IMAGE_VERSION = "20261103-webp";
+const HERO_CAROUSEL_IMAGE_OVERRIDES = {};
 const HERO_CAROUSEL_INTERVAL_MS = 5000;
 let heroCarouselIndex = 0;
 let heroCarouselTimer = null;
@@ -427,7 +434,7 @@ function initHeroCarousel() {
   if (!track || !dots) return;
   track.innerHTML = Array.from(
     { length: HERO_CAROUSEL_COUNT },
-    (_, i) => `<div class="hero-slide" data-index="${i}"><img ${i === 0 ? "src" : "data-src"}="images/hero${i + 1}.png?v=${HERO_CAROUSEL_IMAGE_OVERRIDES[i + 1] || HERO_CAROUSEL_IMAGE_VERSION}" alt="온코드랩 수업 사례 ${i + 1}" loading="${i === 0 ? "eager" : "lazy"}" decoding="async" /></div>`,
+    (_, i) => `<div class="hero-slide" data-index="${i}"><img ${i === 0 ? "src" : "data-src"}="images/hero${i + 1}.webp?v=${HERO_CAROUSEL_IMAGE_OVERRIDES[i + 1] || HERO_CAROUSEL_IMAGE_VERSION}" alt="온코드랩 수업 사례 ${i + 1}" width="720" height="405" ${i === 0 ? 'fetchpriority="high"' : ""} loading="${i === 0 ? "eager" : "lazy"}" decoding="async" /></div>`,
   ).join("");
   const dotButtons = Array.from({ length: HERO_CAROUSEL_COUNT }, (_, i) => `<button type="button" data-hero-dot="${i}" aria-label="${i + 1}번째 이미지로 이동"></button>`).join("");
   dots.innerHTML = `
@@ -960,22 +967,26 @@ function initNotices() {
   initBoard("notice-list", noticeCache, "notice");
 }
 
+let blogReviewsFull = false;
+
 async function loadBlogReviews() {
   if (!document.getElementById("home-reviews") && !document.getElementById("community")) return;
   try {
     const home = Boolean(document.getElementById("home-reviews"));
     blogReviewCache = await api(home ? "/api/blog-reviews?latest=1" : "/api/blog-reviews");
-    if (home) {
-      api("/api/blog-reviews").then((data) => {
-        blogReviewCache = data;
-        const results = document.getElementById("home-review-results");
-        if (results) {
-          results.innerHTML = homeReviewResultsHtml();
-          loadMissingThumbnails(results);
-        }
-      }).catch((error) => console.warn(error.message));
-    }
+    blogReviewsFull = !home;
   } catch (error) {
+    console.warn(error.message);
+  }
+}
+
+async function ensureFullBlogReviews() {
+  if (blogReviewsFull) return;
+  blogReviewsFull = true;
+  try {
+    blogReviewCache = await api("/api/blog-reviews");
+  } catch (error) {
+    blogReviewsFull = false;
     console.warn(error.message);
   }
 }
@@ -985,7 +996,7 @@ const HOME_REVIEW_PAGE_SIZE = 25; // 5행 5열
 
 function reviewThumbHtml(item) {
   return item.image
-    ? `<img src="${escapeHtml(item.image)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:auto" />`
+    ? `<img src="${escapeHtml(item.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" decoding="async" style="width:100%;height:auto" />`
     : `<div class="thumb live" data-thumb-for="${escapeHtml(item.link)}">REVIEW</div>`;
 }
 
@@ -1000,20 +1011,35 @@ function reviewImageLinkHtml(item) {
 // 그려진 카드에 한해서만 본문에서 이미지를 가져와 채워 넣는다(전체를 한 번에
 // 긁으면 너무 느리고 부하가 크기 때문). 같은 글은 세션 내에서 한 번만 요청한다.
 const thumbnailFetchCache = {};
-async function loadMissingThumbnails(root) {
-  const placeholders = root.querySelectorAll("[data-thumb-for]");
-  for (const el of placeholders) {
-    const link = el.dataset.thumbFor;
-    if (!thumbnailFetchCache[link]) {
-      thumbnailFetchCache[link] = api(`/api/blog-reviews/thumbnail?link=${encodeURIComponent(link)}`).catch(() => ({ image: "" }));
-    }
-    thumbnailFetchCache[link].then((result) => {
-      if (!result?.image) return;
-      document.querySelectorAll(`[data-thumb-for="${CSS.escape(link)}"]`).forEach((node) => {
-        node.outerHTML = `<img src="${escapeHtml(result.image)}" alt="" referrerpolicy="no-referrer" style="width:100%;height:auto" />`;
-      });
-    });
+function fillReviewThumbnail(el) {
+  const link = el.dataset.thumbFor;
+  if (!link) return;
+  if (!thumbnailFetchCache[link]) {
+    thumbnailFetchCache[link] = api(`/api/blog-reviews/thumbnail?link=${encodeURIComponent(link)}`).catch(() => ({ image: "" }));
   }
+  thumbnailFetchCache[link].then((result) => {
+    if (!result?.image) return;
+    document.querySelectorAll(`[data-thumb-for="${CSS.escape(link)}"]`).forEach((node) => {
+      node.outerHTML = `<img src="${escapeHtml(result.image)}" alt="" referrerpolicy="no-referrer" loading="lazy" decoding="async" style="width:100%;height:auto" />`;
+    });
+  });
+}
+
+function loadMissingThumbnails(root) {
+  const placeholders = root.querySelectorAll("[data-thumb-for]");
+  if (!placeholders.length) return;
+  if (!("IntersectionObserver" in window)) {
+    placeholders.forEach(fillReviewThumbnail);
+    return;
+  }
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      observer.unobserve(entry.target);
+      fillReviewThumbnail(entry.target);
+    }
+  }, { rootMargin: "160px" });
+  placeholders.forEach((el) => observer.observe(el));
 }
 
 function homeReviewCardHtml(item) {
@@ -1041,8 +1067,9 @@ function renderHomeReviews() {
     </div>
     <div id="home-review-results">${homeReviewResultsHtml()}</div>`;
   loadMissingThumbnails(box);
-  box.querySelector("#home-review-search")?.addEventListener("input", (event) => {
+  box.querySelector("#home-review-search")?.addEventListener("input", async (event) => {
     homeReviewSearch = event.target.value;
+    if (homeReviewSearch.trim()) await ensureFullBlogReviews();
     const results = document.getElementById("home-review-results");
     if (results) {
       results.innerHTML = homeReviewResultsHtml();
@@ -2719,8 +2746,21 @@ function posterFileToDataUrl(file) {
   if (file.size > 3 * 1024 * 1024) return Promise.reject(new Error("포스터 이미지는 3MB 이하로 등록해 주세요."));
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
     reader.onerror = () => reject(new Error("포스터 이미지를 읽지 못했습니다."));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error("포스터 이미지를 읽지 못했습니다."));
+      image.onload = () => {
+        const max = 960;
+        const scale = Math.min(1, max / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.78));
+      };
+      image.src = String(reader.result || "");
+    };
     reader.readAsDataURL(file);
   });
 }
@@ -2934,9 +2974,6 @@ function setupLivePolling() {
     { containerId: "class-list", path: "/api/classes", setCache: (v) => (classCache = v), render: () => { renderClassPage(); fillInquiryOptions(); } },
     { containerId: "test-list", path: "/api/tests", setCache: (v) => (testCache = v), render: initTests },
     { containerId: "notice-list", path: "/api/notices", setCache: (v) => (noticeCache = v), render: initNotices },
-    { containerId: "home-class-preview", path: "/api/classes", setCache: (v) => (classCache = v), render: renderHomePreviews },
-    { containerId: "home-test-preview", path: "/api/tests", setCache: (v) => (testCache = v), render: renderHomePreviews },
-    { containerId: "home-notice-preview", path: "/api/notices", setCache: (v) => (noticeCache = v), render: renderHomePreviews },
     { containerId: "community", path: "/api/posts", setCache: (v) => (postCache = v), render: initCommunity },
   ].filter((watcher) => document.getElementById(watcher.containerId));
   if (!watchers.length) return;
@@ -2974,17 +3011,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     setupCounselButton();
     // 관리자 화면은 다른 API 응답을 기다리느라 빈 페이지로 남지 않게 먼저 표시한다.
     initAdmin();
-    // The shell and navigation are ready; data cards can fill in without a
-    // full-screen overlay blocking the page during a serverless cold start.
-    hidePageLoading();
+    const cachedHome = hydrateHomeCache();
+    if (cachedHome) renderHomePreviews();
     for (const id of ["home-class-preview", "home-test-preview", "home-notice-preview", "home-reviews"]) {
       const box = document.getElementById(id);
-      if (box) box.innerHTML = '<p class="sub" role="status">불러오는 중입니다…</p>';
+      if (box && !box.querySelector("a, .card, .home-preview-card, .home-board-row")) {
+        box.innerHTML = '<p class="sub" role="status">불러오는 중입니다…</p>';
+      }
     }
-    // Blog loading is independent of database and account requests.
-    loadBlogReviews().then(() => {
-      initCommunity();
-      renderHomeReviews();
+    const later = typeof requestIdleCallback === "function" ? requestIdleCallback : (fn) => setTimeout(fn, 200);
+    later(() => {
+      loadBlogReviews().then(() => {
+        initCommunity();
+        renderHomeReviews();
+      });
     });
     await loadSiteData();
     showHomePopup();
@@ -3000,7 +3040,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     initNotices();
     initCommunity();
     setupLivePolling();
-  } finally {
-    hidePageLoading();
+  } catch (error) {
+    console.warn(error.message);
   }
 });
