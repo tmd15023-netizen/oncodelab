@@ -250,6 +250,7 @@ function instructorApplyPayload(body, id, current) {
 
 const BLOG_IDS = ["smartjula", "qortmd1502"];
 const blogReviewCache = { data: null, at: 0 };
+const latestBlogReviewCache = { data: null, at: 0 };
 const BLOG_CACHE_MS = 10 * 60 * 1000;
 
 function stripHtml(html) {
@@ -286,7 +287,7 @@ async function fetchOlderPostTitles(blogId, skipLogNos) {
     try {
       const res = await fetch(
         `https://blog.naver.com/PostTitleListAsync.naver?blogId=${encodeURIComponent(blogId)}&currentPage=${page}&categoryNo=&parentCategoryNo=&countPerPage=30`,
-        { headers: { "User-Agent": "Mozilla/5.0" } },
+        { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(4000) },
       );
       const raw = await res.text();
       const data = JSON.parse(raw.replace(/\\'/g, "'"));
@@ -313,17 +314,18 @@ async function fetchOlderPostTitles(blogId, skipLogNos) {
   return older;
 }
 
-async function fetchBlogReviews() {
-  if (blogReviewCache.data && Date.now() - blogReviewCache.at < BLOG_CACHE_MS) {
-    return blogReviewCache.data;
+async function fetchBlogReviews({ latest = false } = {}) {
+  const cache = latest ? latestBlogReviewCache : blogReviewCache;
+  if (cache.data && Date.now() - cache.at < BLOG_CACHE_MS) {
+    return cache.data;
   }
   const parser = new XMLParser();
   const all = [];
-  for (const blogId of BLOG_IDS) {
+  await Promise.all(BLOG_IDS.map(async (blogId) => {
     const seenLogNos = new Set();
     try {
       const res = await fetch(`https://rss.blog.naver.com/${blogId}.xml`, {
-        headers: { "User-Agent": "Mozilla/5.0" },
+        headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(4000),
       });
       const xml = await res.text();
       const items = parser.parse(xml)?.rss?.channel?.item;
@@ -343,16 +345,17 @@ async function fetchBlogReviews() {
     } catch (error) {
       console.error(`블로그(${blogId}) RSS를 불러오지 못했습니다:`, error.message);
     }
-    all.push(...(await fetchOlderPostTitles(blogId, seenLogNos)));
-  }
+    if (!latest) all.push(...(await fetchOlderPostTitles(blogId, seenLogNos)));
+  }));
   all.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-  blogReviewCache.data = all.slice(0, 600);
-  blogReviewCache.at = Date.now();
-  return blogReviewCache.data;
+  cache.data = all.slice(0, 600);
+  cache.at = Date.now();
+  return cache.data;
 }
 
-app.get("/api/blog-reviews", async (_req, res) => {
-  res.json(await fetchBlogReviews());
+app.get("/api/blog-reviews", async (req, res) => {
+  res.set("Cache-Control", "public, max-age=0, s-maxage=600, stale-while-revalidate=3600");
+  res.json(await fetchBlogReviews({ latest: req.query.latest === "1" }));
 });
 
 // RSS만으로는 블로그당 최근 ~50개 글에만 썸네일이 딸려 오고, 그 이전 글은
@@ -437,19 +440,20 @@ app.get("/api/popup/image", async (req, res) => {
 });
 
 app.get("/api/site-data", async (req, res) => {
-  const user = await userFromReq(req);
+  const home = req.query.view === "home";
+  const user = home ? null : await userFromReq(req);
   const admin = isAdmin(user);
   const [classes, tests, notices, posts, applyFields, users, applications, popup] = await Promise.all([
     col("classes").aggregate([{ $project: classListProjection }]).toArray(),
-    col("tests").find({}).sort({ pinned: -1, pinnedAt: -1, _id: 1 }).toArray(),
+    col("tests").find({}, home ? { projection: { id: 1, title: 1, summary: 1, password: 1, pinned: 1 } } : {}).sort({ pinned: -1, pinnedAt: -1, _id: 1 }).toArray(),
     col("notices").find({}).sort({ createdAt: -1 }).toArray(),
-    col("posts").find({}).sort({ createdAt: -1 }).toArray(),
-    col("applyFields").find({}).sort({ order: 1 }).toArray(),
+    home ? [] : col("posts").find({}).sort({ createdAt: -1 }).toArray(),
+    home ? [] : col("applyFields").find({}).sort({ order: 1 }).toArray(),
     admin ? col("users").find({}).project({ passwordHash: 0 }).toArray() : Promise.resolve(null),
     admin ? col("applications").find({}).sort({ createdAt: -1 }).toArray() : Promise.resolve(null),
     col("popupSettings").findOne(admin ? { _id: "homepage" } : { _id: "homepage", enabled: true }, { projection: { imageDataUrl: 0, image2DataUrl: 0 } }),
   ]);
-  res.set("Cache-Control", "private, no-store");
+  res.set("Cache-Control", home ? "public, max-age=0, s-maxage=30, stale-while-revalidate=60" : "private, no-store");
   res.json({
     classes: sortClasses(classes).map((item) => publicClass(item, { includeSecret: admin })),
     tests: tests.map((item) => publicTest(item, { includeSecret: admin })),

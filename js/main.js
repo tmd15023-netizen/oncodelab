@@ -123,6 +123,24 @@ async function api(path, options = {}) {
 }
 
 async function loadSiteData() {
+  // The public homepage must never wait for private account data.
+  if (typeof document !== "undefined" && document.getElementById("home-class-preview")) {
+    try {
+      const data = await api("/api/site-data?view=home");
+      classCache = data.classes;
+      testCache = data.tests;
+      noticeCache = data.notices;
+      popupCache = data.popup || null;
+    } catch (error) {
+      console.warn(error.message);
+      for (const id of ["home-class-preview", "home-test-preview", "home-notice-preview"]) {
+        const box = document.getElementById(id);
+        if (box) box.textContent = "불러오지 못했습니다. 새로고침해 주세요.";
+      }
+      throw error;
+    }
+    return;
+  }
   const safe = async (promise) => {
     let timer;
     try {
@@ -355,6 +373,11 @@ function updateHeroCarousel() {
     if (diff > total / 2) diff -= total;
     if (diff < -total / 2) diff += total;
     const abs = Math.abs(diff);
+    const image = slide.querySelector("img[data-src]");
+    if (image && abs <= 1) {
+      image.src = image.dataset.src;
+      image.removeAttribute("data-src");
+    }
     slide.classList.toggle("is-center", abs === 0);
     slide.classList.toggle("is-side", abs === 1);
     let transform;
@@ -404,7 +427,7 @@ function initHeroCarousel() {
   if (!track || !dots) return;
   track.innerHTML = Array.from(
     { length: HERO_CAROUSEL_COUNT },
-    (_, i) => `<div class="hero-slide" data-index="${i}"><img src="images/hero${i + 1}.png?v=${HERO_CAROUSEL_IMAGE_OVERRIDES[i + 1] || HERO_CAROUSEL_IMAGE_VERSION}" alt="온코드랩 수업 사례 ${i + 1}" loading="${i === 0 ? "eager" : "lazy"}" decoding="async" /></div>`,
+    (_, i) => `<div class="hero-slide" data-index="${i}"><img ${i === 0 ? "src" : "data-src"}="images/hero${i + 1}.png?v=${HERO_CAROUSEL_IMAGE_OVERRIDES[i + 1] || HERO_CAROUSEL_IMAGE_VERSION}" alt="온코드랩 수업 사례 ${i + 1}" loading="${i === 0 ? "eager" : "lazy"}" decoding="async" /></div>`,
   ).join("");
   const dotButtons = Array.from({ length: HERO_CAROUSEL_COUNT }, (_, i) => `<button type="button" data-hero-dot="${i}" aria-label="${i + 1}번째 이미지로 이동"></button>`).join("");
   dots.innerHTML = `
@@ -938,8 +961,20 @@ function initNotices() {
 }
 
 async function loadBlogReviews() {
+  if (!document.getElementById("home-reviews") && !document.getElementById("community")) return;
   try {
-    blogReviewCache = await api("/api/blog-reviews");
+    const home = Boolean(document.getElementById("home-reviews"));
+    blogReviewCache = await api(home ? "/api/blog-reviews?latest=1" : "/api/blog-reviews");
+    if (home) {
+      api("/api/blog-reviews").then((data) => {
+        blogReviewCache = data;
+        const results = document.getElementById("home-review-results");
+        if (results) {
+          results.innerHTML = homeReviewResultsHtml();
+          loadMissingThumbnails(results);
+        }
+      }).catch((error) => console.warn(error.message));
+    }
   } catch (error) {
     console.warn(error.message);
   }
@@ -2907,6 +2942,7 @@ function setupLivePolling() {
   if (!watchers.length) return;
 
   setInterval(async () => {
+    if (document.hidden) return;
     for (const watcher of watchers) {
       const container = document.getElementById(watcher.containerId);
       if (!container || isTypingInside(container)) continue;
@@ -2922,7 +2958,7 @@ function setupLivePolling() {
       watcher.setCache(fresh);
       watcher.render();
     }
-  }, 5000);
+  }, 30000);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -2941,6 +2977,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     // The shell and navigation are ready; data cards can fill in without a
     // full-screen overlay blocking the page during a serverless cold start.
     hidePageLoading();
+    for (const id of ["home-class-preview", "home-test-preview", "home-notice-preview", "home-reviews"]) {
+      const box = document.getElementById(id);
+      if (box) box.innerHTML = '<p class="sub" role="status">불러오는 중입니다…</p>';
+    }
+    // Blog loading is independent of database and account requests.
+    loadBlogReviews().then(() => {
+      initCommunity();
+      renderHomeReviews();
+    });
     await loadSiteData();
     showHomePopup();
     renderClassPage();
@@ -2953,10 +2998,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     initAdmin();
     initTests();
     initNotices();
-    loadBlogReviews().then(() => {
-      initCommunity();
-      renderHomeReviews();
-    });
     initCommunity();
     setupLivePolling();
   } finally {
