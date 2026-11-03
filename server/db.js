@@ -21,25 +21,37 @@ const client = new MongoClient(uri, {
 });
 
 let db;
+let connectionPromise;
 
 export async function connectDb() {
   if (db) return db;
+  if (!connectionPromise) {
+    connectionPromise = initializeDb().catch((error) => {
+      connectionPromise = undefined;
+      throw error;
+    });
+  }
+  return connectionPromise;
+}
+
+async function initializeDb() {
   await client.connect();
-  db = client.db("oncodelab");
+  const connectedDb = client.db("oncodelab");
   // Run index creation (idempotent) and the seed check in parallel batches
   // instead of 13 sequential round-trips — on a cold serverless start this
   // was the single biggest source of added latency per request.
   await Promise.all([
-    db.collection("users").createIndex({ email: 1 }, { unique: true }),
-    db.collection("classes").createIndex({ id: 1 }, { unique: true }),
-    db.collection("tests").createIndex({ id: 1 }, { unique: true }),
-    db.collection("sessions").createIndex({ token: 1 }, { unique: true }),
-    db.collection("applications").createIndex({ id: 1 }, { unique: true }),
-    db.collection("notices").createIndex({ id: 1 }, { unique: true }),
-    db.collection("posts").createIndex({ id: 1 }, { unique: true }),
-    db.collection("applyFields").createIndex({ id: 1 }, { unique: true }),
+    connectedDb.collection("users").createIndex({ email: 1 }, { unique: true }),
+    connectedDb.collection("classes").createIndex({ id: 1 }, { unique: true }),
+    connectedDb.collection("tests").createIndex({ id: 1 }, { unique: true }),
+    connectedDb.collection("sessions").createIndex({ token: 1 }, { unique: true }),
+    connectedDb.collection("applications").createIndex({ id: 1 }, { unique: true }),
+    connectedDb.collection("notices").createIndex({ id: 1 }, { unique: true }),
+    connectedDb.collection("posts").createIndex({ id: 1 }, { unique: true }),
+    connectedDb.collection("applyFields").createIndex({ id: 1 }, { unique: true }),
   ]);
-  await seedIfEmpty();
+  await seedIfEmpty(connectedDb);
+  db = connectedDb;
   return db;
 }
 
@@ -52,7 +64,7 @@ export function getDb() {
 // row in e.g. "posts" down to zero would make the next serverless cold start see
 // countDocuments() === 0 and silently re-insert the sample defaults, undoing an
 // admin's intentional "delete all" every time the function restarts.
-async function seedIfEmpty() {
+async function seedIfEmpty(db) {
   const meta = await db.collection("_meta").findOne({ _id: "seed" });
   if (meta?.done) return;
   const [classes, tests, notices, posts, applyFields] = await Promise.all([

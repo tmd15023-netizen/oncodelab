@@ -139,9 +139,10 @@ async function loadSiteData() {
     }
   };
   const loggedIn = Boolean(getSession());
+  const adminPage = isAdmin() && typeof document !== "undefined" && Boolean(document.getElementById("admin"));
   const [siteData, myApplications] = await Promise.all([
     safe(api("/api/site-data")),
-    loggedIn ? safe(api("/api/my-applications")) : Promise.resolve(null),
+    loggedIn && !adminPage ? safe(api("/api/my-applications")) : Promise.resolve(null),
   ]);
   const { classes, tests, notices, posts, applyFields, users, applications } = siteData || {};
   if (classes) classCache = classes;
@@ -155,9 +156,11 @@ async function loadSiteData() {
     try {
       // Protected endpoints reject expired sessions instead of returning the
       // public bootstrap's null lists, which must never mean zero members.
-      const [members, entries] = await Promise.all([
-        api("/api/admin/users"), api("/api/admin/applications"),
-      ]);
+      const [members, entries] = Array.isArray(users) && Array.isArray(applications)
+        ? [users, applications]
+        : await Promise.all([
+          api("/api/admin/users"), api("/api/admin/applications"),
+        ]);
       userCache = members;
       applyCache = entries;
       adminDataState = "ready";
