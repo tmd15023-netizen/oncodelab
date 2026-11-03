@@ -466,8 +466,8 @@ function clearPublicCache() {
 app.get("/api/site-data", async (req, res) => {
   const home = req.query.view === "home";
   const adminView = req.query.view === "admin";
-  if (home && homePageCache.body && Date.now() - homePageCache.at < 20000) {
-    res.set("Cache-Control", "public, max-age=15, s-maxage=60, stale-while-revalidate=300");
+  if (home && homePageCache.body && Date.now() - homePageCache.at < 300000) {
+    res.set("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=86400");
     return res.json(homePageCache.body);
   }
   const user = home ? null : await userFromReq(req);
@@ -499,7 +499,7 @@ app.get("/api/site-data", async (req, res) => {
     homePageCache.body = body;
     homePageCache.at = Date.now();
   }
-  res.set("Cache-Control", home ? "public, max-age=15, s-maxage=60, stale-while-revalidate=300" : "private, no-store");
+  res.set("Cache-Control", home ? "public, max-age=60, s-maxage=300, stale-while-revalidate=86400" : "private, no-store");
   res.json(body);
 });
 

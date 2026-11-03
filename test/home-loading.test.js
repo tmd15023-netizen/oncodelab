@@ -36,7 +36,7 @@ test("home data skips account and private collections even with an admin token",
   assert.deepEqual(collections.sort(), ["classes", "notices", "popupSettings", "tests"]);
   assert.equal(body.users, null);
   assert.equal(body.applications, null);
-  assert.match(headers["Cache-Control"], /public.*s-maxage=60/);
+  assert.match(headers["Cache-Control"], /public.*s-maxage=300/);
 });
 
 test("admin bootstrap is a dedicated view and public site-data omits member lists", async () => {
@@ -74,7 +74,9 @@ test("homepage loads independently of personal application requests", async () =
   const source = fs.readFileSync(new URL("../js/main.js", import.meta.url), "utf8");
   const requests = [];
   const context = vm.createContext({
-    document: { getElementById: () => ({}) }, console, sessionStorage: { setItem() {}, getItem() { return null; } },
+    document: { getElementById: () => ({}) }, console,
+    localStorage: { setItem() {}, getItem() { return null; } },
+    sessionStorage: { setItem() {}, getItem() { return null; } },
     api: async (path) => {
       requests.push(path);
       return { classes: [{ id: "class" }], tests: [], notices: [], popup: null };
@@ -91,6 +93,7 @@ test("homepage uses compressed heroes, subset font, and no live list polling", (
   const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const js = fs.readFileSync(new URL("../js/main.js", import.meta.url), "utf8");
   assert.match(html, /pretendard-dynamic-subset/);
+  assert.match(html, /__oncodelabHomeRequest/);
   assert.match(html, /hero1\.webp/);
   assert.match(js, /hero\$\{n\}\.webp/);
   assert.match(js, /isNarrowViewport\(\)/);
@@ -99,6 +102,8 @@ test("homepage uses compressed heroes, subset font, and no live list polling", (
   assert.match(js, /finally \{[\s\S]*showHomePopup\(\)/);
   assert.equal(js.includes("showPageLoading"), false);
   assert.match(js, /cache: fetchCacheMode/);
+  assert.match(js, /writeHomeCache/);
+  assert.match(js, /homeDataBoot/);
   const watchers = js.slice(js.indexOf("const watchers = ["), js.indexOf("].filter((watcher)"));
   assert.equal(watchers.includes("home-class-preview"), false);
 });

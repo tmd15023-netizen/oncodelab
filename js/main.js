@@ -121,21 +121,76 @@ function applyHomeData(data) {
   popupCache = data.popup || null;
 }
 
+function readHomeCache() {
+  return readJson(localStorage, "oncodelab-home-data", null) || readJson(sessionStorage, "oncodelab-home-data", null);
+}
+
+function writeHomeCache(data) {
+  const payload = JSON.stringify({
+    at: Date.now(),
+    data: { classes: data.classes || [], tests: data.tests || [], notices: data.notices || [], popup: data.popup || null },
+  });
+  try { localStorage.setItem("oncodelab-home-data", payload); } catch { /* ignore quota */ }
+  try { sessionStorage.setItem("oncodelab-home-data", payload); } catch { /* ignore quota */ }
+}
+
+function preloadHomeMedia(data) {
+  if (typeof document === "undefined" || !document.head) return;
+  const urls = [];
+  if (data?.popup?.enabled && data.popup.imageUrl) urls.push(data.popup.imageUrl);
+  if (data?.popup?.image2Url && data.popup.secondEnabled !== false) urls.push(data.popup.image2Url);
+  for (const item of (data?.classes || []).slice(0, 4)) {
+    if (item.posterUrl) urls.push(item.posterUrl);
+  }
+  for (const url of urls) {
+    const href = typeof assetUrl === "function" ? assetUrl(url) : url;
+    if (document.querySelector(`link[data-home-preload="${href}"]`)) continue;
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.href = href;
+    link.setAttribute("data-home-preload", href);
+    if (link.fetchPriority !== undefined) link.fetchPriority = "high";
+    document.head.append(link);
+  }
+}
+
+function paintHomeAboveFold() {
+  renderHomePreviews();
+  showHomePopup();
+}
+
 function hydrateHomeCache() {
   if (typeof document === "undefined" || !document.getElementById("home-class-preview")) return false;
-  const cached = readJson(sessionStorage, "oncodelab-home-data", null);
+  const cached = readHomeCache();
   if (!cached?.data?.classes) return false;
   applyHomeData(cached.data);
+  preloadHomeMedia(cached.data);
   return true;
+}
+
+async function loadHomeSiteData() {
+  const pending = typeof globalThis !== "undefined" ? globalThis.__oncodelabHomeRequest : null;
+  if (typeof globalThis !== "undefined") globalThis.__oncodelabHomeRequest = null;
+  if (pending) {
+    try {
+      const data = await pending;
+      if (data?.classes || data?.popup) return data;
+    } catch (error) {
+      console.warn(error.message);
+    }
+  }
+  return api("/api/site-data?view=home");
 }
 
 async function loadSiteData() {
   // The public homepage must never wait for private account data.
   if (typeof document !== "undefined" && document.getElementById("home-class-preview")) {
     try {
-      const data = await api("/api/site-data?view=home");
+      const data = await loadHomeSiteData();
       applyHomeData(data);
-      try { sessionStorage.setItem("oncodelab-home-data", JSON.stringify({ at: Date.now(), data })); } catch { /* ignore quota */ }
+      writeHomeCache(data);
+      preloadHomeMedia(data);
     } catch (error) {
       console.warn(error.message);
       if (!classCache.length) {
@@ -671,7 +726,7 @@ function renderHomePreviews() {
       return `<a class="home-preview-card" href="class-detail?id=${encodeURIComponent(item.id)}">
         ${badges.length ? `<span class="home-preview-badges">${badges.map((badge) => `<span class="home-preview-status is-${badge.tone}">${badge.label}</span>`).join("")}</span>` : ""}
         ${item.posterUrl
-          ? `<span class="home-preview-art home-preview-art-image"><img src="${escapeHtml(assetUrl(item.posterUrl))}" alt="${escapeHtml(item.title)} 포스터" loading="lazy" /></span>`
+          ? `<span class="home-preview-art home-preview-art-image"><img src="${escapeHtml(assetUrl(item.posterUrl))}" alt="${escapeHtml(item.title)} 포스터" loading="eager" fetchpriority="high" decoding="async" /></span>`
           : `<span class="home-preview-art ${escapeHtml(item.tone || "live")}">${escapeHtml(item.label || "CLASS")}</span>`}
         <span class="home-preview-copy"><small>${escapeHtml(item.status || "온라인 · 진행중")}</small><strong>${escapeHtml(item.title)}</strong><span>${escapeHtml(item.summary || "")}</span></span>
       </a>`;
@@ -2086,7 +2141,7 @@ function showHomePopup() {
   dialog.className = `home-image-popup${posters.length === 2 ? " has-two-posters" : ""}`;
   dialog.setAttribute("aria-label", popupCache.title);
   const posterHtml = posters.map((poster, index) => {
-    const image = `<img src="${escapeHtml(assetUrl(poster.imageUrl))}" alt="${escapeHtml(popupCache.title)} · ${index + 1}번 포스터" decoding="async" />`;
+    const image = `<img src="${escapeHtml(assetUrl(poster.imageUrl))}" alt="${escapeHtml(popupCache.title)} · ${index + 1}번 포스터" fetchpriority="high" decoding="async" />`;
     const safeLink = /^https?:\/\//i.test(poster.linkUrl || "") || /^\/(?!\/)/.test(poster.linkUrl || "");
     return `<div class="home-popup-image">${safeLink ? `<a href="${escapeHtml(poster.linkUrl)}">${image}</a>` : image}</div>`;
   }).join("");
@@ -3040,6 +3095,12 @@ function setupLivePolling() {
   }, 30000);
 }
 
+const homePageEl = typeof document !== "undefined" ? document.getElementById("home-class-preview") : null;
+if (homePageEl && hydrateHomeCache()) paintHomeAboveFold();
+const homeDataBoot = homePageEl
+  ? loadSiteData().then(() => paintHomeAboveFold())
+  : null;
+
 document.addEventListener("DOMContentLoaded", async () => {
   try {
     preventPublicPageCopy();
@@ -3048,16 +3109,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (["info", "review", "question"].includes(initialBoardTab)) communityTab = initialBoardTab;
     updateBoardNavigation();
     renderCourses();
-    initHeroCarousel();
     setupAuth();
     setupCounselButton();
     // 관리자 화면은 다른 API 응답을 기다리느라 빈 페이지로 남지 않게 먼저 표시한다.
     initAdmin();
-    const cachedHome = hydrateHomeCache();
-    if (cachedHome) {
-      renderHomePreviews();
-      showHomePopup();
-    }
     for (const id of ["home-class-preview", "home-test-preview", "home-notice-preview", "home-reviews"]) {
       const box = document.getElementById(id);
       if (box && !box.querySelector("a, .card, .home-preview-card, .home-board-row")) {
@@ -3071,9 +3126,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderHomeReviews();
       });
     });
-    await loadSiteData();
+    if (classCache.length) initHeroCarousel();
+    if (homeDataBoot) await homeDataBoot;
+    else await loadSiteData();
+    if (!document.querySelector("#hero-carousel-track .hero-slide")) initHeroCarousel();
     renderClassPage();
-    renderHomePreviews();
+    if (!homePageEl) renderHomePreviews();
     renderClassDetailPage();
     fillInquiryOptions();
     renderApplyFields();
