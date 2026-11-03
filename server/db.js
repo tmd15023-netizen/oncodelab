@@ -50,6 +50,7 @@ async function ensureSchema(connectedDb) {
     connectedDb.collection("tests").createIndex({ id: 1 }, { unique: true }),
     connectedDb.collection("sessions").createIndex({ token: 1 }, { unique: true }),
     connectedDb.collection("applications").createIndex({ id: 1 }, { unique: true }),
+    connectedDb.collection("applications").createIndex({ applicantEmail: 1, classId: 1 }),
     connectedDb.collection("notices").createIndex({ id: 1 }, { unique: true }),
     connectedDb.collection("posts").createIndex({ id: 1 }, { unique: true }),
     connectedDb.collection("applyFields").createIndex({ id: 1 }, { unique: true }),

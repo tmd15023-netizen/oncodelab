@@ -961,14 +961,8 @@ async function submitClassApply(classTitle, classId = "", button) {
   if (!me || !classTitle || button?.disabled) return;
   if (button) { button.disabled = true; button.textContent = "신청 중…"; }
   const body = { kind: "class", type: classTitle, classId };
-  applyFieldCache.forEach((field, idx) => {
-    if (field.type === "tel") body[field.id] = me.phone || "";
-    else if (field.type === "email") body[field.id] = me.email || "";
-    else if (idx === 0) body[field.id] = me.name || "";
-    else if (field.required) body[field.id] = `「${classTitle}」 강좌 수강 신청`; // 수업 의뢰용 필수 항목은 강좌 신청에는 해당 없으므로 자동 채움
-  });
   try {
-    await api("/api/applications", { method: "POST", body: JSON.stringify(body) });
+    await api("/api/applications", { method: "POST", body: JSON.stringify(body), signal: requestTimeout(12000) });
     myClassApplications.push({ classId, type: classTitle });
     if (button) {
       button.textContent = "교육신청 완료";

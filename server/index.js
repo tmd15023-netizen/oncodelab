@@ -810,36 +810,51 @@ app.post("/api/applications", async (req, res) => {
     await col("applications").insertOne(item);
     return res.json(publicApplication(item));
   }
-  const fields = await col("applyFields").find({}).sort({ order: 1 }).toArray();
-  const item = applyPayload(req.body, null, fields);
   if (req.body.kind === "class") {
-    const user = await userFromReq(req);
+    const classId = String(req.body.classId || "").trim();
+    const classTitle = String(req.body.type || "").trim();
+    const [user, fields, cls] = await Promise.all([
+      userFromReq(req),
+      col("applyFields").find({}, { projection: { id: 1, type: 1 } }).sort({ order: 1 }).toArray(),
+      col("classes").findOne(classId ? { id: classId } : { title: classTitle }, { projection: { id: 1, title: 1 } }),
+    ]);
     if (!user) return res.status(401).json({ error: "로그인이 필요합니다." });
-    const cls = await col("classes").findOne(item.classId ? { id: item.classId } : { title: item.type });
     if (!cls) return res.status(404).json({ error: "교육을 찾을 수 없습니다." });
+    const applicationKey = `class-application:${crypto.createHash("sha256").update(`${user.email}:${cls.id}`).digest("hex")}`;
+    const existing = await col("applications").findOne({
+      $or: [
+        { _id: applicationKey },
+        { applicantEmail: user.email, classId: cls.id },
+        { applicantEmail: user.email, type: cls.title },
+      ],
+    });
+    if (existing) return res.json(publicApplication(existing));
+    const item = applyPayload({ ...req.body, type: cls.title, classId: cls.id }, null, fields);
     item.classId = cls.id;
     item.type = cls.title;
     item.applicantEmail = user.email;
     item.status = "pending";
     item.createdAt = new Date();
-    const phoneField = fields.find((field) => field.type === "tel");
-    const phone = String(user.phone || "").replace(/\D/g, "");
+    item._id = applicationKey;
     fields.forEach((field, index) => {
       if (field.type === "tel") item.values[field.id] = user.phone || "";
       else if (field.type === "email") item.values[field.id] = user.email || "";
       else if (index === 0) item.values[field.id] = user.name || "";
     });
-    const previous = await col("applications").find({ $or: [{ classId: cls.id }, { type: cls.title }] }).toArray();
-    const existing = previous.find((entry) => entry.applicantEmail === user.email || (phoneField && phone && String(entry.values?.[phoneField.id] || "").replace(/\D/g, "") === phone));
-    if (existing) return res.json(publicApplication(existing));
-    item._id = `class-application:${crypto.createHash("sha256").update(`${user.email}:${cls.id}`).digest("hex")}`;
     try {
-      await col("applications").updateOne({ _id: item._id }, { $setOnInsert: item }, { upsert: true });
+      const saved = unwrap(await col("applications").findOneAndUpdate(
+        { _id: applicationKey },
+        { $setOnInsert: item },
+        { upsert: true, returnDocument: "after" },
+      ));
+      return res.json(publicApplication(saved || item));
     } catch (error) {
       if (error.code !== 11000) throw error;
+      return res.json(publicApplication(await col("applications").findOne({ _id: applicationKey }) || item));
     }
-    return res.json(publicApplication(await col("applications").findOne({ _id: item._id })));
   }
+  const fields = await col("applyFields").find({}).sort({ order: 1 }).toArray();
+  const item = applyPayload(req.body, null, fields);
   const missingRequired = fields.some((field) => field.required && !item.values[field.id]);
   if (missingRequired) {
     return res.status(400).json({ error: "필수 항목을 모두 입력해 주세요." });

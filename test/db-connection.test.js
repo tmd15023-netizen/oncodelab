@@ -43,7 +43,7 @@ test("concurrent requests share initialization and failed initialization can ret
   assert.equal(connects, 2);
   assert.equal(vm.runInContext("getDb()", context), database);
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(indexes, 8);
+  assert.equal(indexes, 9);
   await vm.runInContext("connectDb()", context);
   assert.equal(connects, 2);
 });
