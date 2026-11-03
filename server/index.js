@@ -479,10 +479,8 @@ app.get("/api/site-data", async (req, res) => {
     col("notices").find({}).sort({ createdAt: -1 }).toArray(),
     home ? [] : col("posts").find({}).sort({ createdAt: -1 }).toArray(),
     home ? [] : col("applyFields").find({}).sort({ order: 1 }).toArray(),
-    admin ? col("users").find({}).project({ passwordHash: 0 }).toArray() : Promise.resolve(null),
-    admin ? col("applications").find({}).project({
-      id: 1, classId: 1, kind: 1, type: 1, values: 1, instructor: 1, note: 1, status: 1, createdAt: 1, viewedAt: 1,
-    }).sort({ createdAt: -1 }).toArray() : Promise.resolve(null),
+    Promise.resolve(null),
+    Promise.resolve(null),
     col("popupSettings").findOne(admin ? { _id: "homepage" } : { _id: "homepage", enabled: true }, { projection: { imageDataUrl: 0, image2DataUrl: 0 } }),
   ]);
   const body = {
@@ -851,7 +849,9 @@ app.post("/api/applications", async (req, res) => {
 });
 
 app.get("/api/admin/applications", requireAdmin, async (_req, res) => {
-  const list = await col("applications").find({}).sort({ createdAt: -1 }).toArray();
+  const list = await col("applications").find({}).project({
+    id: 1, classId: 1, kind: 1, type: 1, values: 1, instructor: 1, note: 1, status: 1, createdAt: 1, viewedAt: 1,
+  }).sort({ createdAt: -1 }).toArray();
   res.json(list.map(publicApplication));
 });
 

@@ -21,6 +21,7 @@ let adminUsersPage = 1;
 let adminUsersSearch = "";
 let adminUsersSort = "newest";
 let adminDataState = "loading";
+let adminListsState = "loading";
 let adminDataError = "";
 let adminNav = "overview";
 let editClassId = null;
@@ -183,6 +184,20 @@ async function loadHomeSiteData() {
   return api("/api/site-data?view=home");
 }
 
+function requestTimeout(ms) {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    try { return AbortSignal.timeout(ms); } catch { /* older runtimes */ }
+  }
+  if (typeof AbortController === "undefined") return undefined;
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), ms);
+  return controller.signal;
+}
+
+function timeoutMessage(error, fallback) {
+  return error.name === "TimeoutError" || error.name === "AbortError" ? fallback : error.message;
+}
+
 async function loadSiteData() {
   // The public homepage must never wait for private account data.
   if (typeof document !== "undefined" && document.getElementById("home-class-preview")) {
@@ -220,26 +235,38 @@ async function loadSiteData() {
   const loggedIn = Boolean(getSession());
   const adminPage = isAdmin() && typeof document !== "undefined" && Boolean(document.getElementById("admin"));
   if (adminPage) {
+    const timed = (path) => api(path, { signal: requestTimeout(20000) });
     try {
-      const data = await api("/api/site-data?view=admin", {
-        signal: typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(15000) : undefined,
-      });
+      const data = await timed("/api/site-data?view=admin");
       if (data.classes) classCache = data.classes;
       if (data.tests) testCache = data.tests;
       if (data.notices) noticeCache = data.notices;
       if (data.posts) postCache = data.posts;
       if (data.applyFields) applyFieldCache = data.applyFields;
       if (data.popup) popupCache = data.popup;
-      if (!Array.isArray(data.users) || !Array.isArray(data.applications)) {
-        throw new Error("관리자 인증을 확인할 수 없습니다. 다시 로그인해 주세요.");
-      }
-      userCache = data.users;
-      applyCache = data.applications;
       adminDataState = "ready";
       adminDataError = "";
+      if (typeof initAdmin === "function") initAdmin();
+      try {
+        const [users, applications] = await Promise.all([
+          timed("/api/admin/users"),
+          timed("/api/admin/applications"),
+        ]);
+        if (!Array.isArray(users) || !Array.isArray(applications)) {
+          throw new Error("관리자 인증을 확인할 수 없습니다. 다시 로그인해 주세요.");
+        }
+        userCache = users;
+        applyCache = applications;
+        adminListsState = "ready";
+        if (typeof initAdmin === "function") initAdmin();
+      } catch (error) {
+        adminListsState = "error";
+        adminDataError = timeoutMessage(error, "회원과 신청 내역 응답이 늦습니다. 다시 불러와 주세요.");
+        if (typeof initAdmin === "function") initAdmin();
+      }
     } catch (error) {
       adminDataState = "error";
-      adminDataError = error.name === "TimeoutError" ? "서버 응답이 늦어 중단했습니다. 다시 불러와 주세요." : error.message;
+      adminDataError = timeoutMessage(error, "서버 응답이 늦어 중단했습니다. 다시 불러와 주세요.");
     }
     return;
   }
@@ -993,6 +1020,7 @@ function refreshAuthButton() {
 
 async function refreshAccountViews() {
   refreshAuthButton();
+  initAdmin();
   await loadSiteData();
   initMypage();
   initAdmin();
@@ -1789,13 +1817,12 @@ function initAdmin() {
     return;
   }
 
-  if (adminDataState !== "ready") {
+  if (adminDataState === "error") {
     box.className = "admin-gate";
-    box.innerHTML = adminDataState === "loading"
-      ? noticeCard("관리자 데이터를 불러오는 중입니다", "회원과 신청 내역을 확인하고 있습니다.", "")
-      : noticeCard("관리자 데이터를 불러오지 못했습니다", escapeHtml(adminDataError), '<p><button class="btn btn-line" type="button" data-admin-retry>다시 불러오기</button> <button class="btn btn-line" type="button" data-admin-login>다시 로그인</button></p>');
+    box.innerHTML = noticeCard("관리자 데이터를 불러오지 못했습니다", escapeHtml(adminDataError), '<p><button class="btn btn-line" type="button" data-admin-retry>다시 불러오기</button> <button class="btn btn-line" type="button" data-admin-login>다시 로그인</button></p>');
     box.querySelector("[data-admin-retry]")?.addEventListener("click", async () => {
       adminDataState = "loading";
+      adminListsState = "loading";
       initAdmin();
       await loadSiteData();
       initAdmin();
@@ -1850,6 +1877,7 @@ function initAdmin() {
       </div>
     </aside>
     <main class="dash-main">
+      ${adminListsState !== "ready" ? `<p class="sub admin-lists-status" role="status">${adminListsState === "error" ? `${escapeHtml(adminDataError || "회원과 신청 내역을 불러오지 못했습니다.")} <button class="btn btn-line" type="button" data-admin-retry>다시 불러오기</button>` : "회원과 신청 내역을 불러오는 중입니다."}</p>` : ""}
       ${adminTab === "overview" ? adminOverview() : ""}
       ${adminTab === "class" ? adminClassPanel(editingClass) : ""}
       ${adminTab === "test" ? adminTestPanel(editingTest) : ""}
@@ -1885,6 +1913,12 @@ function initAdmin() {
     if (usersPage && !usersPage.disabled) {
       adminUsersPage = Number(usersPage.dataset.adminUsersPage);
       initAdmin();
+      return;
+    }
+    if (event.target.closest("[data-admin-retry]")) {
+      adminListsState = "loading";
+      initAdmin();
+      loadSiteData().then(() => initAdmin());
       return;
     }
     if (event.target.closest("[data-admin-logout]")) {
@@ -2250,7 +2284,7 @@ function adminOverview() {
           </tr>`;
         })
         .join("")
-    : `<tr><td class="empty-row" colspan="4">최근 수업 신청이 없습니다.</td></tr>`;
+    : `<tr><td class="empty-row" colspan="4">${adminListsState === "loading" ? "신청 내역을 불러오는 중입니다." : "최근 수업 신청이 없습니다."}</td></tr>`;
   return `
     <section class="dash-card">
       <div class="dash-card-head">
@@ -2258,14 +2292,14 @@ function adminOverview() {
         <p>수업 신청·회원·Class 현황을 한눈에 확인하세요.</p>
       </div>
       <div class="admin-stats">
-        ${adminStat("전체 신청", `${applyCache.length}건`, "applications", "apply")}
-        ${adminStat("접수 대기", `${applyCount("pending")}건`, "status:pending", "apply")}
-        ${adminStat("확인 완료", `${applyCount("confirmed")}건`, "status:confirmed", "apply")}
-        ${adminStat("상담진행중", `${applyCount("counseling")}건`, "status:counseling", "apply")}
-        ${adminStat("처리 완료", `${applyCount("done")}건`, "status:done", "apply")}
-        ${adminStat("강사 신청", `${applyCache.filter(isInstructorApply).length}건`, "instructors")}
-        ${adminStat("수업 문의", `${applyCache.filter(isInquiryApply).length}건`, "fields")}
-        ${adminStat("가입자 수", `${userCache.length}명`, "users")}
+        ${adminStat("전체 신청", adminListsState === "ready" ? `${applyCache.length}건` : "…", "applications", "apply")}
+        ${adminStat("접수 대기", adminListsState === "ready" ? `${applyCount("pending")}건` : "…", "status:pending", "apply")}
+        ${adminStat("확인 완료", adminListsState === "ready" ? `${applyCount("confirmed")}건` : "…", "status:confirmed", "apply")}
+        ${adminStat("상담진행중", adminListsState === "ready" ? `${applyCount("counseling")}건` : "…", "status:counseling", "apply")}
+        ${adminStat("처리 완료", adminListsState === "ready" ? `${applyCount("done")}건` : "…", "status:done", "apply")}
+        ${adminStat("강사 신청", adminListsState === "ready" ? `${applyCache.filter(isInstructorApply).length}건` : "…", "instructors")}
+        ${adminStat("수업 문의", adminListsState === "ready" ? `${applyCache.filter(isInquiryApply).length}건` : "…", "fields")}
+        ${adminStat("가입자 수", adminListsState === "ready" ? `${userCache.length}명` : "…", "users")}
         ${adminStat("등록 Class", `${classCache.length}개`, "class")}
         ${adminStat("공지사항", `${noticeCache.length}건`, "notice")}
         ${adminStat("커뮤니티 글", `${postCache.length}건`, "community")}
@@ -3054,14 +3088,15 @@ function setupLivePolling() {
       if (refreshing || document.hidden || !isAdmin() || isTypingInside(adminBox) || adminTab !== "overview") return;
       refreshing = true;
       try {
-        const data = await api("/api/site-data?view=admin");
-        // Recheck after the request so a tab switch or an edit is never replaced.
+        const [users, applications] = await Promise.all([
+          api("/api/admin/users"),
+          api("/api/admin/applications"),
+        ]);
         if (!isAdmin() || adminTab !== "overview" || isTypingInside(adminBox)) return;
-        classCache = data.classes; testCache = data.tests; noticeCache = data.notices;
-        postCache = data.posts; applyFieldCache = data.applyFields;
-        if (!Array.isArray(data.users) || !Array.isArray(data.applications)) throw new Error("관리자 인증을 확인할 수 없습니다. 다시 로그인해 주세요.");
-        userCache = data.users; applyCache = data.applications;
-        popupCache = data.popup || null;
+        if (!Array.isArray(users) || !Array.isArray(applications)) throw new Error("관리자 인증을 확인할 수 없습니다. 다시 로그인해 주세요.");
+        userCache = users;
+        applyCache = applications;
+        adminListsState = "ready";
         initAdmin();
       } catch (error) { console.warn(error.message); }
       finally { refreshing = false; }

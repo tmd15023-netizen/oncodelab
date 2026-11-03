@@ -63,7 +63,7 @@ test("admin bootstrap is a dedicated view and public site-data omits member list
   const start = source.indexOf('app.get("/api/site-data"');
   const end = source.indexOf('app.get("/api/classes/:id/poster"', start);
   vm.runInNewContext(source.slice(start, end), context);
-  await handler({ query: {}, headers: { authorization: "Bearer admin" } }, {
+  await handler({ query: { view: "admin" }, headers: { authorization: "Bearer admin" } }, {
     set() {}, json() {},
   });
   assert.equal(collections.includes("users"), false);
