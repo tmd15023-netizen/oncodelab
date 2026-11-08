@@ -2873,7 +2873,7 @@ async function saveAdminClass(event) {
       return;
     }
   }
-  await saveItem("classes", id, {
+  const classBody = {
     id,
     label: form.label.value.trim() || "CLASS",
     tone: form.tone.value,
@@ -2885,7 +2885,9 @@ async function saveAdminClass(event) {
     fileUrl,
     fileName,
     password: form.password.value.trim(),
-  });
+  };
+  if (/\/api\/classes\/[^/]+\/poster(?:\?|$)/.test(posterUrl)) delete classBody.posterUrl;
+  await saveItem("classes", id, classBody);
 }
 
 async function moveClass(id, direction) {

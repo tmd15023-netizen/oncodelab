@@ -145,6 +145,14 @@ async function saveDoc(res, name, id, data, mapFn, missing) {
   res.json(mapFn(data));
 }
 
+function isKeptPosterReference(posterUrl, classId) {
+  const value = String(posterUrl || "").trim();
+  if (!value || value.startsWith("data:image/")) return false;
+  const path = value.replace(/^https?:\/\/[^/]+/i, "").split("?")[0];
+  return path === `/api/classes/${encodeURIComponent(classId)}/poster`
+    || path === `/api/classes/${classId}/poster`;
+}
+
 function classPayload(body, id) {
   const posterUrl = String(body.posterUrl || "").trim();
   const item = {
@@ -956,7 +964,10 @@ app.put("/api/admin/classes/:id", requireAdmin, async (req, res) => {
   if (!item.title) return res.status(400).json({ error: "교육 제목을 입력해 주세요." });
   // The edit form receives an image endpoint, not the stored data URL.
   // Keeping that endpoint means the existing image must remain untouched.
-  if (item.posterUrl === `/api/classes/${encodeURIComponent(req.params.id)}/poster`) delete item.posterUrl;
+  if (isKeptPosterReference(item.posterUrl, req.params.id)) {
+    delete item.posterUrl;
+    delete item.posterVersion;
+  }
   await saveDoc(res, "classes", req.params.id, item, (doc) => publicClass(doc, { includeSecret: true }), "교육을 찾을 수 없습니다.");
 });
 

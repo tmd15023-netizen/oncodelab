@@ -654,9 +654,9 @@ h3 { font-size: 22px; }
 .class-program-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px; }
 .class-program-card { min-width: 0; display: flex; flex-direction: column; overflow: hidden; border: 1px solid #e8edf4; border-radius: 16px; background: #fff; box-shadow: 0 4px 16px rgba(28, 49, 83, .06); transition: transform .2s, box-shadow .2s; }
 .class-program-card:hover { transform: translateY(-4px); box-shadow: 0 12px 28px rgba(28, 49, 83, .12); }
-.class-program-cover { position: relative; display: block; overflow: hidden; aspect-ratio: 4 / 3; background: #e8effa; }
-.class-program-cover::after { content: ""; position: absolute; inset: 35% 0 0; background: linear-gradient(transparent, rgba(9, 24, 43, .86)); pointer-events: none; }
-.class-program-cover img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; transition: transform .25s; }
+.class-program-cover { position: relative; display: block; overflow: hidden; aspect-ratio: 3 / 4; background: #e8effa; }
+.class-program-cover::after { content: ""; position: absolute; inset: 55% 0 0; background: linear-gradient(transparent, rgba(9, 24, 43, .86)); pointer-events: none; }
+.class-program-cover img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center top; transition: transform .25s; }
 .class-program-card:hover .class-program-cover img { transform: scale(1.025); }
 .class-program-cover h3 { position: absolute; z-index: 1; bottom: 20px; left: 22px; right: 22px; margin: 0; color: #fff; font-size: clamp(18px, 1.6vw, 23px); line-height: 1.4; text-shadow: 0 1px 4px rgba(0, 0, 0, .25); }
 .class-program-placeholder { display: grid; place-items: center; height: 100%; padding: 20px; color: #4967ad; font-size: 28px; font-weight: 700; }
@@ -1670,8 +1670,8 @@ h3 { font-size: 22px; }
 .home-page .home-preview-card:nth-child(2) .home-preview-art { background: linear-gradient(135deg, #247b7b, #7bc2b6); }
 .home-page .home-preview-card:nth-child(3) .home-preview-art { background: linear-gradient(135deg, #aa633c, #e9aa75); }
 .home-page .home-preview-card:nth-child(4) .home-preview-art { background: linear-gradient(135deg, #554782, #ae9bda); }
-.home-page .home-preview-card .home-preview-art-image { display: block; height: 180px; padding: 0; background: #f4f6f9; }
-.home-page .home-preview-art-image img { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+.home-page .home-preview-card .home-preview-art-image { display: block; height: auto; aspect-ratio: 3 / 4; padding: 0; background: #f4f6f9; }
+.home-page .home-preview-art-image img { width: 100%; height: 100%; object-fit: contain; object-position: center top; }
 .home-page .home-preview-copy { display: grid; gap: 7px; padding: 16px; }
 .home-page .home-preview-copy small, .home-page .home-preview-copy > span { color: var(--muted); }
 .home-page .home-preview-copy strong, .home-page .home-test-card strong { font-size: 19px; color: var(--navy); }
