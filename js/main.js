@@ -236,7 +236,7 @@ async function loadHomeSiteData() {
       console.warn(error.message);
     }
   }
-  return api("/api/site-data?view=home");
+  return api("/api/site-data?view=home&r=20261108-card-orig");
 }
 
 function requestTimeout(ms) {

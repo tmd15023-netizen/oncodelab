@@ -8,11 +8,11 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard-dynamic-subset.min.css" />
-  <link rel="stylesheet" href="css/style.css?v=20261108-poster-full" />
+  <link rel="stylesheet" href="css/style.css?v=20261108-card-orig" />
   <script>
     (function () {
       var host = location.hostname === "oncodelab.co.kr" ? "https://www.oncodelab.co.kr" : "";
-      window.__oncodelabHomeRequest = fetch(host + "/api/site-data?view=home").then(function (res) {
+      window.__oncodelabHomeRequest = fetch(host + "/api/site-data?view=home&r=20261108-card-orig").then(function (res) {
         if (!res.ok) throw new Error("home");
         return res.json();
       });
@@ -44,6 +44,6 @@
     </div>
     <div class="copy">© 2026 Oncodelab. All rights reserved.</div>
   </footer>
-  <script src="js/main.js?v=20261108-poster-full"></script>
+  <script src="js/main.js?v=20261108-card-orig"></script>
 </body>
 </html>
