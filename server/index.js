@@ -153,6 +153,14 @@ function isKeptPosterReference(posterUrl, classId) {
     || path === `/api/classes/${classId}/poster`;
 }
 
+function shouldPreserveClassPoster(body, classId) {
+  if (body?.removePoster === true || body?.removePoster === "true") return false;
+  const posterUrl = body?.posterUrl;
+  if (posterUrl == null || String(posterUrl).trim() === "") return true;
+  if (String(posterUrl).trim().startsWith("data:image/")) return false;
+  return isKeptPosterReference(posterUrl, classId);
+}
+
 function classPayload(body, id) {
   const posterUrl = String(body.posterUrl || "").trim();
   const item = {
@@ -963,8 +971,9 @@ app.put("/api/admin/classes/:id", requireAdmin, async (req, res) => {
   const item = classPayload(req.body, req.params.id);
   if (!item.title) return res.status(400).json({ error: "교육 제목을 입력해 주세요." });
   // The edit form receives an image endpoint, not the stored data URL.
-  // Keeping that endpoint means the existing image must remain untouched.
-  if (isKeptPosterReference(item.posterUrl, req.params.id)) {
+  // Omitting posterUrl, or sending that endpoint back, leaves the stored image in place.
+  // An explicit empty string still removes it.
+  if (shouldPreserveClassPoster(req.body, req.params.id)) {
     delete item.posterUrl;
     delete item.posterVersion;
   }

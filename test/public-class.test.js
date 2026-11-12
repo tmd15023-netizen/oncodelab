@@ -25,4 +25,10 @@ test("class edits keep the stored poster when the form sends the image endpoint"
   assert.equal(vm.runInContext("isKeptPosterReference('https://www.oncodelab.co.kr/api/classes/class-one/poster?v=ab12', 'class-one')", context), true);
   assert.equal(vm.runInContext("isKeptPosterReference('data:image/png;base64,AAAA', 'class-one')", context), false);
   assert.equal(vm.runInContext("isKeptPosterReference('https://example.com/poster.png', 'class-one')", context), false);
+  assert.equal(vm.runInContext("shouldPreserveClassPoster({}, 'class-one')", context), true);
+  assert.equal(vm.runInContext("shouldPreserveClassPoster({ posterUrl: '/api/classes/class-one/poster?v=1' }, 'class-one')", context), true);
+  assert.equal(vm.runInContext("shouldPreserveClassPoster({ posterUrl: '' }, 'class-one')", context), true);
+  assert.equal(vm.runInContext("shouldPreserveClassPoster({ posterUrl: '', removePoster: true }, 'class-one')", context), false);
+  assert.equal(vm.runInContext("shouldPreserveClassPoster({ posterUrl: 'data:image/jpeg;base64,AAAA' }, 'class-one')", context), false);
+  assert.match(source, /if \(shouldPreserveClassPoster\(req\.body, req\.params\.id\)\)/);
 });

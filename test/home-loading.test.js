@@ -86,7 +86,7 @@ test("homepage loads independently of personal application requests", async () =
   vm.runInContext(`let classCache, testCache, noticeCache, popupCache;\n` +
     source.slice(source.indexOf("function applyHomeData"), source.indexOf("// Intentionally in-memory")), context);
   await vm.runInContext("loadSiteData()", context);
-  assert.deepEqual(requests, ["/api/site-data?view=home&r=20261108-card-orig"]);
+  assert.deepEqual(requests, ["/api/site-data?view=home&r=20261112-posters"]);
   assert.equal(vm.runInContext("classCache[0].id", context), "class");
 });
 
@@ -120,7 +120,7 @@ test("logged-in class pages load the visitor's applications so completed buttons
     context,
   );
   await vm.runInContext("loadSiteData()", context);
-  assert.deepEqual(requests, ["/api/site-data?view=home&r=20261108-card-orig", "/api/my-applications"]);
+  assert.deepEqual(requests, ["/api/site-data?view=home&r=20261112-posters", "/api/my-applications"]);
   assert.equal(vm.runInContext("hasAppliedForClass('생성AI 활용 전자책 제작', 'class-one')", context), true);
 });
 

@@ -236,7 +236,7 @@ async function loadHomeSiteData() {
       console.warn(error.message);
     }
   }
-  return api("/api/site-data?view=home&r=20261108-card-orig");
+  return api("/api/site-data?view=home&r=20261112-posters");
 }
 
 function requestTimeout(ms) {
@@ -2863,7 +2863,8 @@ async function saveAdminClass(event) {
     }
   }
   let posterUrl = form.dataset.posterUrl || "";
-  if (form.removePoster?.checked) posterUrl = "";
+  const removingPoster = Boolean(form.removePoster?.checked);
+  if (removingPoster) posterUrl = "";
   const posterInput = form.querySelector('input[name="poster"]');
   if (posterInput?.files?.[0]) {
     try {
@@ -2886,7 +2887,8 @@ async function saveAdminClass(event) {
     fileName,
     password: form.password.value.trim(),
   };
-  if (/\/api\/classes\/[^/]+\/poster(?:\?|$)/.test(posterUrl)) delete classBody.posterUrl;
+  if (removingPoster) classBody.removePoster = true;
+  else if (!posterUrl || /\/api\/classes\/[^/]+\/poster(?:\?|$)/.test(posterUrl)) delete classBody.posterUrl;
   await saveItem("classes", id, classBody);
 }
 
