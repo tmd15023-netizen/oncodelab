@@ -26,7 +26,7 @@ if (!isServerless) {
     "contact", "diagnosis", "greeting", "history", "instructor",
     "mypage", "notice", "program", "student", "teacher",
   ]);
-  for (const directory of ["css", "js", "images"]) {
+  for (const directory of ["css", "js", "images", "downloads"]) {
     app.use(`/${directory}`, express.static(path.join(siteRoot, directory)));
   }
   for (const file of ["favicon.png", "favicon.svg", "apple-touch-icon.png", "robots.txt", "sitemap.xml"]) {
@@ -815,11 +815,44 @@ app.post("/api/auth/reset-password", async (req, res) => {
   res.json({ ok: true });
 });
 
+// Store the template in MongoDB so it survives serverless deployments.
+function publicInstructorSettings(item) {
+  return { email: item?.email || "oncodelab1@gmail.com", fileName: item?.fileName || "강사 카드.hwp", downloadUrl: item?.fileBase64 ? "/api/instructor-template/download" : "/downloads/instructor-application.hwp" };
+}
+
+app.get("/api/instructor-template", async (_req, res) => {
+  const item = await col("instructorSettings").findOne({ _id: "application" });
+  res.set("Cache-Control", "no-store").json(publicInstructorSettings(item));
+});
+
+app.get("/api/instructor-template/download", async (_req, res) => {
+  const item = await col("instructorSettings").findOne({ _id: "application" });
+  if (!item?.fileBase64) return res.status(404).json({ error: "아직 신청서 양식이 등록되지 않았습니다." });
+  res.set({ "Content-Type": "application/octet-stream", "Content-Disposition": `attachment; filename="instructor-application${path.extname(item.fileName)}"; filename*=UTF-8''${encodeURIComponent(item.fileName)}`, "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
+  res.send(Buffer.from(item.fileBase64, "base64"));
+});
+
+app.put("/api/admin/instructor-template", requireAdmin, async (req, res) => {
+  const email = String(req.body.email || "").trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "제출 이메일을 올바르게 입력해 주세요." });
+  const data = { email };
+  if (req.body.fileBase64) {
+    const fileName = String(req.body.fileName || "").replace(/[\x00-\x1f\x7f/\\]/g, "").slice(0, 160);
+    const fileBase64 = String(req.body.fileBase64);
+    if (!/\.(pdf|doc|docx|hwp|hwpx)$/i.test(fileName) || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(fileBase64) || Buffer.from(fileBase64, "base64").length > 3 * 1024 * 1024) {
+      return res.status(400).json({ error: "PDF, Word, 한글 파일(3MB 이하)을 등록해 주세요." });
+    }
+    Object.assign(data, { fileName, fileBase64 });
+  }
+  await col("instructorSettings").updateOne({ _id: "application" }, { $set: data }, { upsert: true });
+  res.json({ ok: true });
+});
+
 app.post("/api/applications", async (req, res) => {
   if (req.body.kind === "instructor") {
     const item = instructorApplyPayload(req.body);
     const applicant = item.instructor;
-    if (!applicant.name || !applicant.email || !applicant.phone || !applicant.message) {
+    if (!applicant.name || !applicant.email || !applicant.phone) {
       return res.status(400).json({ error: "필수 항목을 모두 입력해 주세요." });
     }
     if (!validPhone(applicant.phone)) return res.status(400).json({ error: "전화번호를 올바르게 입력해 주세요." });

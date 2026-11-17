@@ -2637,12 +2637,70 @@ function applyDetailHtml(item) {
   </div>`;
 }
 
+async function loadInstructorTemplate() {
+  if (!document.getElementById("instructor-template-download")) return;
+  try {
+    const settings = await api("/api/instructor-template");
+    const link = document.getElementById("instructor-template-download");
+    link.href = API + settings.downloadUrl;
+    link.download = settings.fileName;
+    document.getElementById("instructor-template-status").textContent = `신청서 양식: ${settings.fileName}`;
+    const email = document.getElementById("instructor-submit-email");
+    email.textContent = settings.email;
+    email.href = `mailto:${settings.email}`;
+    document.getElementById("instructor-compose-email").href = `mailto:${settings.email}?subject=${encodeURIComponent("[강사 신청] 이름")}`;
+  } catch (error) {
+    console.warn(error.message);
+  }
+}
+
+async function saveInstructorTemplate(event) {
+  event.preventDefault();
+  const form = event.target;
+  const button = form.querySelector('button[type="submit"]');
+  button.disabled = true;
+  const status = form.querySelector('[role="status"]');
+  status.textContent = "저장 중입니다…";
+  try {
+    const data = { email: form.elements.email.value };
+    const file = form.elements.template.files[0];
+    if (file) {
+      if (file.size > 3 * 1024 * 1024 || !/\.(pdf|doc|docx|hwp|hwpx)$/i.test(file.name)) throw new Error("PDF, Word, 한글 파일(3MB 이하)을 선택해 주세요.");
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("파일을 읽지 못했습니다."));
+        reader.readAsDataURL(file);
+      });
+      data.fileName = file.name;
+      data.fileBase64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
+    }
+    await api("/api/admin/instructor-template", { method: "PUT", body: JSON.stringify(data) });
+    status.textContent = "저장되었습니다. 강사 신청 페이지에 반영됩니다.";
+    form.elements.template.value = "";
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function adminInstructorPanel() {
   const viewed = applyCache.find((item) => item.id === viewApplyId && isInstructorApply(item));
   if (viewed) return applyDetailHtml(viewed);
   return `<div class="profile-card">
+    <h2>강사 신청서 및 제출 이메일</h2>
+    <p class="sub">기본 양식은 강사 카드.hwp입니다. 파일을 선택하면 기존 양식을 교체합니다.</p>
+    <a href="instructor" target="_blank" rel="noopener">현재 신청서 및 제출 안내 확인</a>
+    <form class="form" onsubmit="saveInstructorTemplate(event)">
+      <label>제출 이메일<input required type="email" name="email" value="oncodelab1@gmail.com" /></label>
+      <label>신청서 파일 (3MB 이하)<input type="file" name="template" accept=".pdf,.doc,.docx,.hwp,.hwpx" /></label>
+      <button class="btn btn-orange" type="submit">양식 및 이메일 저장</button>
+      <p role="status" aria-live="polite"></p>
+    </form>
+  </div><div class="profile-card">
     <h2>강사 신청자 목록</h2>
-    <p class="sub">홈페이지 강사 신청서를 통해 접수된 지원자입니다.</p>
+    <p class="sub">홈페이지에서 기본정보를 접수한 지원자입니다. 작성한 신청서는 제출 이메일에서 별도로 확인해 주세요.</p>
     <div style="margin-top:12px">${instructorResultsListHtml()}</div>
   </div>`;
 }
@@ -3272,6 +3330,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderCourses();
     setupAuth();
     setupCounselButton();
+    loadInstructorTemplate();
     // 관리자 화면은 다른 API 응답을 기다리느라 빈 페이지로 남지 않게 먼저 표시한다.
     initAdmin();
     for (const id of ["home-class-preview", "home-test-preview", "home-notice-preview", "home-reviews"]) {
