@@ -2648,7 +2648,7 @@ async function loadInstructorTemplate() {
     const email = document.getElementById("instructor-submit-email");
     email.textContent = settings.email;
     email.href = `mailto:${settings.email}`;
-    document.getElementById("instructor-compose-email").href = `mailto:${settings.email}?subject=${encodeURIComponent("[강사 신청] 이름")}`;
+    document.getElementById("instructor-compose-email").href = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(settings.email)}&su=${encodeURIComponent("[강사 신청] 이름")}`;
   } catch (error) {
     console.warn(error.message);
   }
