@@ -146,6 +146,14 @@ test("homepage uses compressed heroes, subset font, and no live list polling", (
   assert.equal(watchers.includes("home-class-preview"), false);
 });
 
+test("public pages block the context menu except form fields", () => {
+  const js = fs.readFileSync(new URL("../js/main.js", import.meta.url), "utf8");
+  const fn = js.slice(js.indexOf("function preventPublicPageCopy"), js.indexOf("function isInquiryApply"));
+  assert.match(fn, /admin-body/);
+  assert.match(fn, /contextmenu/);
+  assert.match(fn, /input, textarea, \[contenteditable='true'\]/);
+});
+
 test("home popup stays visible when showModal is unavailable", () => {
   const source = fs.readFileSync(new URL("../js/main.js", import.meta.url), "utf8");
   const appended = [];

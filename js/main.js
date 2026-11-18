@@ -877,6 +877,9 @@ function renderHomePreviews() {
 function preventPublicPageCopy() {
   if (document.body.classList.contains("admin-body")) return;
   const isEditable = (element) => element instanceof Element && Boolean(element.closest("input, textarea, [contenteditable='true']"));
+  document.addEventListener("contextmenu", (event) => {
+    if (!isEditable(event.target)) event.preventDefault();
+  }, true);
   document.addEventListener("selectstart", (event) => {
     if (!isEditable(event.target)) event.preventDefault();
   });
