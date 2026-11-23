@@ -100,3 +100,20 @@ test("admin bootstrap retries an aborted first request instead of blocking the p
   assert.equal(vm.runInContext("adminDataState", context), "ready");
   assert.equal(vm.runInContext("classCache[0].id", context), "class");
 });
+
+test("closed class edits can omit online and offline mode", () => {
+  const start = source.indexOf("function classStatusNeedsMode");
+  const fn = source.slice(start, source.indexOf("\nfunction ", start + 1));
+  const save = source.slice(source.indexOf("async function saveAdminClass"), source.indexOf("async function moveClass"));
+  assert.match(fn, /접수중/);
+  assert.match(fn, /진행중/);
+  assert.match(save, /classStatusNeedsMode\(stages\)/);
+  const context = vm.createContext({});
+  vm.runInContext(fn, context);
+  assert.equal(context.classStatusNeedsMode(["마감"]), false);
+  assert.equal(context.classStatusNeedsMode(["종료"]), false);
+  assert.equal(context.classStatusNeedsMode(["마감", "종료"]), false);
+  assert.equal(context.classStatusNeedsMode(["접수중"]), true);
+  assert.equal(context.classStatusNeedsMode(["진행중"]), true);
+  assert.equal(context.classStatusNeedsMode(["진행중", "마감"]), true);
+});

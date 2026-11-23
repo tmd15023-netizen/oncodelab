@@ -817,6 +817,10 @@ function classStatusTokens(status) {
   return String(status || "").split("·").map((part) => part.trim()).filter(Boolean);
 }
 
+function classStatusNeedsMode(stages) {
+  return stages.some((stage) => stage === "접수중" || stage === "진행중");
+}
+
 function classRecruitmentBadges(status) {
   const parts = classStatusTokens(status);
   const has = (pattern) => parts.some((part) => pattern.test(part));
@@ -2453,7 +2457,7 @@ function adminClassPanel(editing) {
           </select>
         </div>
         <fieldset class="class-status-group">
-          <legend>진행 방식 <small>중복 선택 가능</small></legend>
+          <legend>진행 방식 <small>중복 선택 가능 · 마감·종료만 선택할 때는 생략 가능</small></legend>
           <div class="class-status-options">
             ${["온라인", "오프라인"].map((mode) => `<label class="class-status-chip"><input type="checkbox" name="classMode" value="${mode}" ${selectedMode(mode) ? "checked" : ""} /><span>${mode}</span></label>`).join("")}
           </div>
@@ -2897,8 +2901,12 @@ async function saveAdminClass(event) {
   const form = event.target;
   const modes = [...form.querySelectorAll('input[name="classMode"]:checked')].map((input) => input.value);
   const stages = [...form.querySelectorAll('input[name="classStage"]:checked')].map((input) => input.value);
-  if (!modes.length || !stages.length) {
-    window.alert("진행 방식과 모집 상태를 각각 하나 이상 선택해 주세요.");
+  if (!stages.length || (classStatusNeedsMode(stages) && !modes.length)) {
+    window.alert(
+      !stages.length
+        ? "모집 상태를 하나 이상 선택해 주세요."
+        : "진행 방식과 모집 상태를 각각 하나 이상 선택해 주세요."
+    );
     return;
   }
   const id = editClassId;
