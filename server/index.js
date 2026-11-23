@@ -161,6 +161,10 @@ function shouldPreserveClassPoster(body, classId) {
   return isKeptPosterReference(posterUrl, classId);
 }
 
+function classApplicationClosed(status) {
+  return String(status || "").split("·").map((part) => part.trim()).some((part) => /마감(?!임박)/.test(part) || /종료|종강/.test(part));
+}
+
 function classPayload(body, id) {
   const posterUrl = String(body.posterUrl || "").trim();
   const item = {
@@ -865,10 +869,11 @@ app.post("/api/applications", async (req, res) => {
     const [user, fields, cls] = await Promise.all([
       userFromReq(req),
       col("applyFields").find({}, { projection: { id: 1, type: 1 } }).sort({ order: 1 }).toArray(),
-      col("classes").findOne(classId ? { id: classId } : { title: classTitle }, { projection: { id: 1, title: 1 } }),
+      col("classes").findOne(classId ? { id: classId } : { title: classTitle }, { projection: { id: 1, title: 1, status: 1 } }),
     ]);
     if (!user) return res.status(401).json({ error: "로그인이 필요합니다." });
     if (!cls) return res.status(404).json({ error: "교육을 찾을 수 없습니다." });
+    if (classApplicationClosed(cls.status)) return res.status(400).json({ error: "마감되었거나 종료된 교육입니다." });
     const applicationKey = `class-application:${crypto.createHash("sha256").update(`${user.email}:${cls.id}`).digest("hex")}`;
     const existing = await col("applications").findOne({
       $or: [

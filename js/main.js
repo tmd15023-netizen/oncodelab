@@ -688,6 +688,8 @@ function renderClassPage() {
         actionHtml = `<a class="class-program-action" href="${escapeHtml(accessUrl)}" target="_blank" rel="noopener">수강하기 <span aria-hidden="true">→</span></a>`;
       } else if (hasAppliedForClass(item.title, item.id)) {
         actionHtml = `<a class="class-program-action is-applied" href="${detailUrl}">교육신청 완료</a>`;
+      } else if (classApplicationClosed(item.status)) {
+        actionHtml = `<span class="class-program-action is-closed" aria-disabled="true">신청하기</span>`;
       } else {
         actionHtml = `<a class="class-program-action" href="${detailUrl}">신청하기 <span aria-hidden="true">→</span></a>`;
       }
@@ -841,6 +843,10 @@ function classDisplayBadges(status) {
   ];
 }
 
+function classApplicationClosed(status) {
+  return classRecruitmentBadges(status).some((badge) => badge.tone === "closed" || badge.tone === "ended");
+}
+
 function renderHomePreviews() {
   const classes = document.getElementById("home-class-preview");
   const tests = document.getElementById("home-test-preview");
@@ -937,8 +943,11 @@ function initClassSelection() {
 }
 
 function renderClassAttendanceApply(box, classTitle, classId = "") {
+  const cls = classCache.find((item) => (classId && item.id === classId) || item.title === classTitle);
+  const closed = classApplicationClosed(cls?.status);
+  const applied = hasAppliedForClass(classTitle, classId);
   const me = getSession();
-  if (!me) {
+  if (!me && !closed) {
     box.innerHTML = noticeCard("로그인이 필요합니다", "Class 신청은 로그인 후 이용할 수 있습니다.", `<p><a class="btn btn-orange" href="#" data-auth="login">로그인</a></p>`);
     box.querySelector("[data-auth='login']")?.addEventListener("click", (event) => {
       event.preventDefault();
@@ -947,16 +956,24 @@ function renderClassAttendanceApply(box, classTitle, classId = "") {
     return;
   }
   box.innerHTML = `
-    <p class="sub" style="margin-bottom:16px"><b>${escapeHtml(classTitle)}</b> 강좌에 신청합니다.</p>
+    <p class="sub" style="margin-bottom:16px">${closed && !applied
+      ? `<b>${escapeHtml(classTitle)}</b> 강좌는 마감되었거나 종료되어 신청할 수 없습니다.`
+      : `<b>${escapeHtml(classTitle)}</b> 강좌에 신청합니다.`}</p>
     <button class="btn btn-orange" type="button" id="class-apply-btn">신청하기</button>
   `;
   const button = box.querySelector("#class-apply-btn");
-  const applied = hasAppliedForClass(classTitle, classId);
   if (applied) {
     button.disabled = true;
     button.classList.add("class-apply-completed");
     button.textContent = "교육신청 완료";
-  } else if (myApplicationsState === "loading") {
+    return;
+  }
+  if (closed) {
+    button.disabled = true;
+    button.classList.add("class-apply-completed");
+    return;
+  }
+  if (myApplicationsState === "loading") {
     button.disabled = true;
     button.textContent = "확인 중…";
   }
@@ -965,7 +982,16 @@ function renderClassAttendanceApply(box, classTitle, classId = "") {
 
 async function submitClassApply(classTitle, classId = "", button) {
   const me = getSession();
+  const cls = classCache.find((item) => (classId && item.id === classId) || item.title === classTitle);
   if (!me || !classTitle || button?.disabled) return;
+  if (classApplicationClosed(cls?.status)) {
+    if (button) {
+      button.disabled = true;
+      button.classList.add("class-apply-completed");
+      button.textContent = "신청하기";
+    }
+    return;
+  }
   if (button) { button.disabled = true; button.textContent = "신청 중…"; }
   const body = { kind: "class", type: classTitle, classId };
   try {
