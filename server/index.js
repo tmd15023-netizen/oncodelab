@@ -9,6 +9,7 @@ import multer from "multer";
 import bcrypt from "bcryptjs";
 import { XMLParser } from "fast-xml-parser";
 import { connectDb, getDb, publicApplication, publicClass, publicTest, publicUser, publicNotice, publicPost, publicApplyField } from "./db.js";
+import { isSiteOrigin, readVisitStats, recordVisit } from "./visits.js";
 
 const isServerless = Boolean(process.env.VERCEL);
 const app = express();
@@ -1118,6 +1119,28 @@ app.delete("/api/admin/apply-fields/:id", requireAdmin, async (req, res) => {
     return res.status(404).json({ error: "입력 항목을 찾을 수 없습니다." });
   }
   res.json({ ok: true });
+});
+
+function visitCollections() {
+  return { visitStats: col("visitStats"), visitKeys: col("visitKeys") };
+}
+
+app.get("/api/visits", async (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json(await readVisitStats(visitCollections()));
+});
+
+app.post("/api/visits", async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const purpose = String(req.get("sec-purpose") || req.get("purpose") || "");
+  const collections = visitCollections();
+  if (/prefetch/i.test(purpose) || !isSiteOrigin(req.get("origin"))) {
+    return res.json(await readVisitStats(collections));
+  }
+  res.json(await recordVisit(collections, {
+    visitorId: req.body?.visitorId,
+    userAgent: req.get("user-agent"),
+  }));
 });
 
 app.use((error, _req, res, _next) => {

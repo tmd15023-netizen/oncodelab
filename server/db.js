@@ -54,6 +54,7 @@ async function ensureSchema(connectedDb) {
     connectedDb.collection("notices").createIndex({ id: 1 }, { unique: true }),
     connectedDb.collection("posts").createIndex({ id: 1 }, { unique: true }),
     connectedDb.collection("applyFields").createIndex({ id: 1 }, { unique: true }),
+    connectedDb.collection("visitKeys").createIndex({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 3 }),
   ]);
   await seedIfEmpty(connectedDb);
 }

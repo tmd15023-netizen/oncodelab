@@ -3356,7 +3356,85 @@ const publicDataBoot = isPublicClassPage()
     })
   : null;
 
+function kstDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const value = (type) => parts.find((part) => part.type === type)?.value || "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
+function visitVisitorId() {
+  const key = "oncodelab-visitor";
+  try {
+    const saved = localStorage.getItem(key);
+    if (/^[a-zA-Z0-9_-]{16,64}$/.test(saved || "")) return saved;
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    const id = [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+    localStorage.setItem(key, id);
+    return id;
+  } catch {
+    return "";
+  }
+}
+
+function renderVisitCount(data) {
+  const footer = document.querySelector("footer.footer");
+  if (!footer) return;
+  const today = Number(data?.today || 0);
+  const total = Number(data?.total || 0);
+  let bar = document.getElementById("visit-count");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "visit-count";
+    bar.className = "visit-count";
+    bar.setAttribute("role", "status");
+    footer.appendChild(bar);
+  }
+  bar.setAttribute("aria-label", `오늘 방문자 ${today.toLocaleString("ko-KR")}명, 누적 방문자 ${total.toLocaleString("ko-KR")}명`);
+  bar.replaceChildren();
+  const figure = (label, value) => {
+    const span = document.createElement("span");
+    span.append(document.createTextNode(`${label} `));
+    const num = document.createElement("span");
+    num.className = "visit-count-num";
+    num.textContent = Number(value || 0).toLocaleString("ko-KR");
+    span.append(num);
+    return span;
+  };
+  const sep = document.createElement("span");
+  sep.className = "visit-count-sep";
+  sep.setAttribute("aria-hidden", "true");
+  sep.textContent = "·";
+  bar.append(figure("오늘 방문자", today), sep, figure("누적 방문자", total));
+}
+
+async function trackVisit() {
+  if (!document.querySelector("footer.footer")) return;
+  const admin = /(?:^|\/)admin(?:\.html)?$/.test(location.pathname);
+  const visitorId = admin ? "" : visitVisitorId();
+  let countedDate = "";
+  try { countedDate = localStorage.getItem("oncodelab-visit-date") || ""; } catch { /* private mode */ }
+  const shouldCount = Boolean(visitorId) && countedDate !== kstDateKey();
+  try {
+    const data = await api("/api/visits", shouldCount
+      ? { method: "POST", body: JSON.stringify({ visitorId }) }
+      : {});
+    if (shouldCount && data?.date) {
+      try { localStorage.setItem("oncodelab-visit-date", data.date); } catch { /* ignore */ }
+    }
+    renderVisitCount(data);
+  } catch (error) {
+    console.warn(error.message);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+  trackVisit();
   try {
     preventPublicPageCopy();
     setupUnifiedHeader();
